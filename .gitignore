@@ -34,10 +34,6 @@ yarn-error.log*
 .env*
 !.env
 
-# sqlite database (generated via prisma migrate + seed)
-/dev.db
-/dev.db-journal
-
 # vercel
 .vercel
 
