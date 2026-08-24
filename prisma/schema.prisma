@@ -1,8 +1,8 @@
 // Marketing Plan — Prisma Schema
-// Note: SQLite has no native enum type, so status/type/category fields are
-// plain Strings with the allowed values enforced in the application layer
-// (see src/lib/constants.ts). Multi-select fields (e.g. campaign platforms)
-// are stored as comma-separated strings for the same reason.
+// Note: status/type/category fields are plain Strings with the allowed
+// values enforced in the application layer (see src/lib/constants.ts),
+// and multi-select fields (e.g. campaign platforms) are stored as
+// comma-separated strings, so the schema is portable across SQL providers.
 
 generator client {
   provider = "prisma-client"
@@ -10,7 +10,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model Company {
