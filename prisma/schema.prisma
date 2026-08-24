@@ -1,0 +1,194 @@
+// Marketing Plan — Prisma Schema
+// Note: SQLite has no native enum type, so status/type/category fields are
+// plain Strings with the allowed values enforced in the application layer
+// (see src/lib/constants.ts). Multi-select fields (e.g. campaign platforms)
+// are stored as comma-separated strings for the same reason.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  logo      String?
+  currency  String   @default("IQD")
+  language  String   @default("ar")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  brands Brand[]
+  plans  Plan[]
+  users  User[]
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plans     Plan[]
+  campaigns Campaign[]
+}
+
+model Plan {
+  id          String    @id @default(cuid())
+  companyId   String
+  brandId     String?
+  name        String
+  description String?
+  period      String?
+  startDate   DateTime
+  endDate     DateTime
+  budget      Float     @default(0)
+  mainGoal    String?
+  status      String    @default("مخطط")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  brand      Brand?      @relation(fields: [brandId], references: [id])
+  objectives Objective[]
+  campaigns  Campaign[]
+  content    Content[]
+  expenses   Expense[]
+  metrics    Metric[]
+  tasks      Task[]
+}
+
+model Objective {
+  id          String   @id @default(cuid())
+  planId      String
+  name        String
+  description String?
+  kpiType     String
+  target      Float    @default(0)
+  current     Float    @default(0)
+  unit        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model Campaign {
+  id           String    @id @default(cuid())
+  planId       String
+  brandId      String?
+  name         String
+  objective    String?
+  startDate    DateTime
+  endDate      DateTime
+  budget       Float     @default(0)
+  platforms    String    @default("")
+  audience     String?
+  assignedToId String?
+  status       String    @default("مخطط")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  plan       Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  brand      Brand?    @relation(fields: [brandId], references: [id])
+  assignedTo User?     @relation(fields: [assignedToId], references: [id])
+  content    Content[]
+  expenses   Expense[]
+  metrics    Metric[]
+  tasks      Task[]
+}
+
+model Content {
+  id           String   @id @default(cuid())
+  planId       String
+  campaignId   String?
+  title        String
+  type         String
+  platform     String
+  date         DateTime
+  assignedToId String?
+  status       String   @default("فكرة")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  plan       Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+  assignedTo User?     @relation(fields: [assignedToId], references: [id])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  planId      String
+  campaignId  String?
+  category    String
+  description String?
+  amount      Float
+  date        DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  plan     Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+}
+
+model Metric {
+  id          String   @id @default(cuid())
+  planId      String
+  campaignId  String?
+  platform    String?
+  reach       Int      @default(0)
+  impressions Int      @default(0)
+  views       Int      @default(0)
+  engagement  Int      @default(0)
+  leads       Int      @default(0)
+  sales       Int      @default(0)
+  revenue     Float    @default(0)
+  spend       Float    @default(0)
+  date        DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  plan     Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+}
+
+model Task {
+  id           String    @id @default(cuid())
+  planId       String
+  campaignId   String?
+  title        String
+  description  String?
+  assignedToId String?
+  priority     String    @default("متوسطة")
+  status       String    @default("جديدة")
+  dueDate      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  plan       Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+  assignedTo User?     @relation(fields: [assignedToId], references: [id])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  companyId String?
+  name      String
+  email     String   @unique
+  role      String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company?   @relation(fields: [companyId], references: [id])
+  content   Content[]
+  tasks     Task[]
+  campaigns Campaign[]
+}
