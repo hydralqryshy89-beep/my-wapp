@@ -12,5 +12,10 @@ export async function verifyCredentials(email: string, password: string) {
   if (!user?.passwordHash) return null;
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return null;
+  // A user with no access role assigned has no permissions on any section (see
+  // src/lib/access.ts — can() defaults to false with no role), but the dashboard
+  // itself has no per-resource gate, so without this check they could still log
+  // in and see the company-wide overview. Block the login outright instead.
+  if (!user.accessRoleId) return "no-role" as const;
   return user;
 }

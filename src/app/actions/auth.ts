@@ -16,6 +16,9 @@ export async function login(_prevState: string | undefined, formData: FormData):
   if (!user) {
     return "البريد الإلكتروني أو كلمة المرور غير صحيحة";
   }
+  if (user === "no-role") {
+    return "هذا الحساب ليس له دور وصلاحيات بعد. تواصل مع مدير النظام لتفعيله من الإعدادات.";
+  }
 
   await createSession(user.id);
   redirect("/dashboard");
