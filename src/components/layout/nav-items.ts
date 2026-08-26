@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { PermissionResource } from "@/lib/constants";
+import { can, type CurrentUser } from "@/lib/access";
 
 export interface NavItem {
   href: string;
@@ -21,7 +22,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
+  { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard, resource: "dashboard" },
   { href: "/plans", label: "الخطة التسويقية", icon: Compass, resource: "plans" },
   { href: "/objectives", label: "الأهداف و KPI", icon: Target, resource: "objectives" },
   { href: "/campaigns", label: "الحملات", icon: Rocket, resource: "campaigns" },
@@ -31,3 +32,9 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/tasks", label: "الفريق والمهام", icon: Users, resource: "tasks" },
   { href: "/settings", label: "الإعدادات", icon: Settings, resource: "settings" },
 ];
+
+/** Where to land a user right after login: their first viewable section, in nav order. */
+export function firstAccessiblePath(user: CurrentUser): string {
+  const item = NAV_ITEMS.find((i) => !i.resource || can(user, i.resource, "VIEW"));
+  return item?.href ?? "/dashboard";
+}

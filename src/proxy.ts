@@ -16,7 +16,9 @@ export async function proxy(request: NextRequest) {
   }
 
   if (session && pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    // Edge runtime has no DB access to pick the user's first accessible section,
+    // so hand off to "/" (a Node-runtime page) which resolves the real landing page.
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

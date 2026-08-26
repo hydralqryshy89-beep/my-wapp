@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { verifyCredentials } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/permissions";
+import { firstAccessiblePath } from "@/components/layout/nav-items";
 
 export async function login(_prevState: string | undefined, formData: FormData): Promise<string | undefined> {
   const email = (formData.get("email") as string | null)?.trim() ?? "";
@@ -21,7 +23,8 @@ export async function login(_prevState: string | undefined, formData: FormData):
   }
 
   await createSession(user.id);
-  redirect("/dashboard");
+  const currentUser = await getCurrentUser();
+  redirect(currentUser ? firstAccessiblePath(currentUser) : "/dashboard");
 }
 
 export async function logout() {
