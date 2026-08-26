@@ -54,6 +54,7 @@ async function main() {
       name: "مسؤول حملات",
       isAdmin: false,
       perms: {
+        dashboard: VIEW,
         plans: VIEW,
         objectives: VIEW,
         campaigns: EDIT,
@@ -70,6 +71,8 @@ async function main() {
       name: "عضو فريق",
       isAdmin: false,
       perms: {
+        // Regular team members land on their content/tasks, not the company-wide dashboard.
+        dashboard: NONE,
         plans: VIEW,
         objectives: VIEW,
         campaigns: VIEW,
@@ -86,6 +89,7 @@ async function main() {
       name: "محلل بيانات",
       isAdmin: false,
       perms: {
+        dashboard: VIEW,
         plans: VIEW,
         objectives: VIEW,
         campaigns: VIEW,
@@ -98,18 +102,22 @@ async function main() {
     },
   ] as const;
 
+  // Every upsert below only touches its `create` branch on rows that don't exist yet —
+  // `update: {}` deliberately leaves already-existing rows untouched. This seed re-runs
+  // on every deploy (see package.json's vercel-build), and once an admin starts editing
+  // roles/permissions/users from Settings, redeploying must never silently revert them.
   const roles: Record<string, string> = {};
   for (const r of rolesData) {
     const role = await prisma.role.upsert({
       where: { id: r.id },
-      update: { name: r.name, isAdmin: r.isAdmin },
+      update: {},
       create: { id: r.id, companyId: company.id, name: r.name, isAdmin: r.isAdmin },
     });
     roles[r.key] = role.id;
     for (const resource of PERMISSION_RESOURCES) {
       await prisma.rolePermission.upsert({
         where: { roleId_resource: { roleId: role.id, resource } },
-        update: { level: r.perms[resource] },
+        update: {},
         create: { roleId: role.id, resource, level: r.perms[resource] },
       });
     }
@@ -131,7 +139,7 @@ async function main() {
   for (const u of usersData) {
     const user = await prisma.user.upsert({
       where: { email: u.email },
-      update: { role: u.role, accessRoleId: roles[u.accessRole], passwordHash: demoPasswordHash },
+      update: {},
       create: {
         companyId: company.id,
         name: u.name,

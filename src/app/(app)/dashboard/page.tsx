@@ -22,8 +22,12 @@ import { ButtonLink } from "@/components/ui/button";
 import { CampaignPerformanceChart } from "@/components/charts/campaign-performance-chart";
 import { formatCurrency, formatNumber, formatPercent, formatDate } from "@/lib/format";
 import { getCompany } from "@/lib/data/company";
+import { requireUser, can } from "@/lib/permissions";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 export default async function DashboardPage() {
+  const user = await requireUser();
+  if (!can(user, "dashboard", "VIEW")) return <AccessDenied label="لوحة التحكم" />;
   const [data, company] = await Promise.all([getDashboardData(), getCompany()]);
 
   if (!data) {

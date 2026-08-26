@@ -66,10 +66,11 @@ export const PRIORITY_BADGE_STYLES: Record<string, string> = {
   "عالية": "bg-rose-50 text-rose-700 ring-rose-200",
 };
 
-// Access control: every app section a role's access can be scoped to.
-// "dashboard" is intentionally excluded — the overview is visible to any
-// signed-in user regardless of role.
+// Access control: every app section a role's access can be scoped to,
+// including the dashboard itself — a role with no explicit grant defaults
+// to NONE, same as every other section (see src/lib/access.ts's can()).
 export const PERMISSION_RESOURCES = [
+  "dashboard",
   "plans",
   "objectives",
   "campaigns",
@@ -82,6 +83,7 @@ export const PERMISSION_RESOURCES = [
 export type PermissionResource = (typeof PERMISSION_RESOURCES)[number];
 
 export const PERMISSION_RESOURCE_LABELS: Record<PermissionResource, string> = {
+  dashboard: "لوحة التحكم",
   plans: "الخطة التسويقية",
   objectives: "الأهداف و KPI",
   campaigns: "الحملات",
