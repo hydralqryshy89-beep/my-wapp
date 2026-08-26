@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { assertPermission } from "@/lib/permissions";
 
 function str(formData: FormData, key: string): string {
   return (formData.get(key) as string | null)?.trim() ?? "";
@@ -31,6 +32,7 @@ function revalidateAll(planId: string) {
 }
 
 export async function createTask(formData: FormData) {
+  await assertPermission("tasks", "EDIT");
   const data = readFields(formData);
   await prisma.task.create({ data });
   revalidateAll(data.planId);
@@ -38,6 +40,7 @@ export async function createTask(formData: FormData) {
 }
 
 export async function updateTask(id: string, formData: FormData) {
+  await assertPermission("tasks", "EDIT");
   const data = readFields(formData);
   await prisma.task.update({ where: { id }, data });
   revalidateAll(data.planId);
@@ -46,12 +49,14 @@ export async function updateTask(id: string, formData: FormData) {
 
 export async function deleteTask(id: string, _formData: FormData) {
   void _formData;
+  await assertPermission("tasks", "EDIT");
   const task = await prisma.task.delete({ where: { id } });
   revalidateAll(task.planId);
 }
 
 export async function updateTaskStatus(id: string, status: string, _formData: FormData) {
   void _formData;
+  await assertPermission("tasks", "EDIT");
   const task = await prisma.task.update({ where: { id }, data: { status } });
   revalidateAll(task.planId);
 }

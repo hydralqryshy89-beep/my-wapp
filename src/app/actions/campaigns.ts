@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { assertPermission } from "@/lib/permissions";
 
 function str(formData: FormData, key: string): string {
   return (formData.get(key) as string | null)?.trim() ?? "";
@@ -40,6 +41,7 @@ function revalidateAll(planId: string, campaignId?: string) {
 }
 
 export async function createCampaign(formData: FormData) {
+  await assertPermission("campaigns", "EDIT");
   const data = readFields(formData);
   const campaign = await prisma.campaign.create({ data });
   revalidateAll(data.planId, campaign.id);
@@ -47,6 +49,7 @@ export async function createCampaign(formData: FormData) {
 }
 
 export async function updateCampaign(id: string, formData: FormData) {
+  await assertPermission("campaigns", "EDIT");
   const data = readFields(formData);
   await prisma.campaign.update({ where: { id }, data });
   revalidateAll(data.planId, id);
@@ -55,6 +58,7 @@ export async function updateCampaign(id: string, formData: FormData) {
 
 export async function deleteCampaign(id: string, _formData: FormData) {
   void _formData;
+  await assertPermission("campaigns", "EDIT");
   const campaign = await prisma.campaign.delete({ where: { id } });
   revalidateAll(campaign.planId);
   redirect("/campaigns");

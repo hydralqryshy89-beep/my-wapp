@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCompany } from "@/lib/data/company";
+import { assertPermission } from "@/lib/permissions";
 
 function str(formData: FormData, key: string): string {
   return (formData.get(key) as string | null)?.trim() ?? "";
@@ -32,6 +33,7 @@ async function readPlanFields(formData: FormData) {
 }
 
 export async function createPlan(formData: FormData) {
+  await assertPermission("plans", "EDIT");
   const data = await readPlanFields(formData);
   const plan = await prisma.plan.create({ data });
   revalidatePath("/plans");
@@ -40,6 +42,7 @@ export async function createPlan(formData: FormData) {
 }
 
 export async function updatePlan(id: string, formData: FormData) {
+  await assertPermission("plans", "EDIT");
   const data = await readPlanFields(formData);
   await prisma.plan.update({ where: { id }, data });
   revalidatePath("/plans");
@@ -50,6 +53,7 @@ export async function updatePlan(id: string, formData: FormData) {
 
 export async function deletePlan(id: string, _formData: FormData) {
   void _formData;
+  await assertPermission("plans", "EDIT");
   await prisma.plan.delete({ where: { id } });
   revalidatePath("/plans");
   revalidatePath("/dashboard");

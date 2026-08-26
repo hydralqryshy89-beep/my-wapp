@@ -6,13 +6,19 @@ import { useState } from "react";
 import { Menu, X, Megaphone } from "lucide-react";
 import { NAV_ITEMS } from "./nav-items";
 import { cn } from "@/lib/utils";
+import { can, type CurrentUser } from "@/lib/access";
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function visibleNavItems(user: CurrentUser) {
+  return NAV_ITEMS.filter((item) => !item.resource || can(user, item.resource, "VIEW"));
+}
+
+function NavLinks({ user, onNavigate }: { user: CurrentUser; onNavigate?: () => void }) {
   const pathname = usePathname();
+  const items = visibleNavItems(user);
 
   return (
     <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const active = pathname === item.href || pathname.startsWith(item.href + "/");
         const Icon = item.icon;
         return (
@@ -37,7 +43,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: CurrentUser }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -75,7 +81,7 @@ export function Sidebar() {
                 <X size={20} />
               </button>
             </div>
-            <NavLinks onNavigate={() => setOpen(false)} />
+            <NavLinks user={user} onNavigate={() => setOpen(false)} />
           </aside>
         </div>
       )}
@@ -91,7 +97,7 @@ export function Sidebar() {
             <div className="text-xs text-[var(--sidebar-fg)]">إدارة الخطة التسويقية</div>
           </div>
         </div>
-        <NavLinks />
+        <NavLinks user={user} />
         <div className="border-t border-white/10 px-5 py-4 text-xs text-[var(--sidebar-fg)]">
           Marketing Plan © {new Date().getFullYear()}
         </div>
