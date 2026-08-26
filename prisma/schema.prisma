@@ -25,6 +25,7 @@ model Company {
   brands Brand[]
   plans  Plan[]
   users  User[]
+  roles  Role[]
 }
 
 model Brand {
@@ -178,17 +179,48 @@ model Task {
 }
 
 model User {
+  id           String   @id @default(cuid())
+  companyId    String?
+  name         String
+  email        String   @unique
+  role         String?
+  passwordHash String?
+  accessRoleId String?
+  avatar       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company    Company?   @relation(fields: [companyId], references: [id])
+  accessRole Role?      @relation(fields: [accessRoleId], references: [id])
+  content    Content[]
+  tasks      Task[]
+  campaigns  Campaign[]
+}
+
+// Access control: a Role is a named, fully custom permission set an admin
+// defines per company (not a fixed hardcoded list) — each RolePermission row
+// says how much access that role has to one app section ("resource").
+model Role {
   id        String   @id @default(cuid())
-  companyId String?
+  companyId String
   name      String
-  email     String   @unique
-  role      String?
-  avatar    String?
+  isAdmin   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  company   Company?   @relation(fields: [companyId], references: [id])
-  content   Content[]
-  tasks     Task[]
-  campaigns Campaign[]
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  users       User[]
+}
+
+// level is one of: NONE | VIEW | EDIT (see src/lib/constants.ts)
+model RolePermission {
+  id       String @id @default(cuid())
+  roleId   String
+  resource String
+  level    String @default("NONE")
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, resource])
 }

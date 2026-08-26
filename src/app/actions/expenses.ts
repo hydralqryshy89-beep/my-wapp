@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { assertPermission } from "@/lib/permissions";
 
 function str(formData: FormData, key: string): string {
   return (formData.get(key) as string | null)?.trim() ?? "";
@@ -32,6 +33,7 @@ function revalidateAll(planId: string) {
 }
 
 export async function createExpense(formData: FormData) {
+  await assertPermission("budget", "EDIT");
   const data = readFields(formData);
   await prisma.expense.create({ data });
   revalidateAll(data.planId);
@@ -39,6 +41,7 @@ export async function createExpense(formData: FormData) {
 }
 
 export async function updateExpense(id: string, formData: FormData) {
+  await assertPermission("budget", "EDIT");
   const data = readFields(formData);
   await prisma.expense.update({ where: { id }, data });
   revalidateAll(data.planId);
@@ -47,6 +50,7 @@ export async function updateExpense(id: string, formData: FormData) {
 
 export async function deleteExpense(id: string, _formData: FormData) {
   void _formData;
+  await assertPermission("budget", "EDIT");
   const expense = await prisma.expense.delete({ where: { id } });
   revalidateAll(expense.planId);
 }

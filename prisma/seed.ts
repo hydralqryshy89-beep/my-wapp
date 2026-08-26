@@ -1,5 +1,7 @@
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import bcrypt from "bcryptjs";
+import { PERMISSION_RESOURCES, type PermissionLevel } from "../src/lib/constants";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -33,20 +35,111 @@ async function main() {
     brands[name] = brand.id;
   }
 
+  // ---- Access roles (custom permission matrices) ------------------------
+  const NONE: PermissionLevel = "NONE";
+  const VIEW: PermissionLevel = "VIEW";
+  const EDIT: PermissionLevel = "EDIT";
+
+  const rolesData = [
+    {
+      key: "admin",
+      id: "seed-role-admin",
+      name: "مدير النظام",
+      isAdmin: true,
+      perms: Object.fromEntries(PERMISSION_RESOURCES.map((r) => [r, EDIT])),
+    },
+    {
+      key: "campaignManager",
+      id: "seed-role-campaign-manager",
+      name: "مسؤول حملات",
+      isAdmin: false,
+      perms: {
+        plans: VIEW,
+        objectives: VIEW,
+        campaigns: EDIT,
+        content: EDIT,
+        budget: VIEW,
+        analytics: VIEW,
+        tasks: EDIT,
+        settings: NONE,
+      },
+    },
+    {
+      key: "teamMember",
+      id: "seed-role-team-member",
+      name: "عضو فريق",
+      isAdmin: false,
+      perms: {
+        plans: VIEW,
+        objectives: VIEW,
+        campaigns: VIEW,
+        content: EDIT,
+        budget: NONE,
+        analytics: NONE,
+        tasks: EDIT,
+        settings: NONE,
+      },
+    },
+    {
+      key: "analyst",
+      id: "seed-role-analyst",
+      name: "محلل بيانات",
+      isAdmin: false,
+      perms: {
+        plans: VIEW,
+        objectives: VIEW,
+        campaigns: VIEW,
+        content: NONE,
+        budget: VIEW,
+        analytics: EDIT,
+        tasks: VIEW,
+        settings: NONE,
+      },
+    },
+  ] as const;
+
+  const roles: Record<string, string> = {};
+  for (const r of rolesData) {
+    const role = await prisma.role.upsert({
+      where: { id: r.id },
+      update: { name: r.name, isAdmin: r.isAdmin },
+      create: { id: r.id, companyId: company.id, name: r.name, isAdmin: r.isAdmin },
+    });
+    roles[r.key] = role.id;
+    for (const resource of PERMISSION_RESOURCES) {
+      await prisma.rolePermission.upsert({
+        where: { roleId_resource: { roleId: role.id, resource } },
+        update: { level: r.perms[resource] },
+        create: { roleId: role.id, resource, level: r.perms[resource] },
+      });
+    }
+  }
+
   // ---- Users -----------------------------------------------------------
+  // Demo login for every seeded user, for trying out the different roles:
+  const DEMO_PASSWORD = "Demo@12345";
+  const demoPasswordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+
   const usersData = [
-    { key: "ahmad", name: "أحمد الشمري", email: "ahmad@globalcars.iq", role: "مدير التسويق" },
-    { key: "sara", name: "سارة العلي", email: "sara@globalcars.iq", role: "مصممة جرافيك" },
-    { key: "ali", name: "علي حسن", email: "ali@globalcars.iq", role: "مسؤول حملات إعلانية" },
-    { key: "noor", name: "نور محمد", email: "noor@globalcars.iq", role: "منشئة محتوى" },
-    { key: "hussein", name: "حسين كريم", email: "hussein@globalcars.iq", role: "محلل بيانات" },
+    { key: "ahmad", name: "أحمد الشمري", email: "ahmad@globalcars.iq", role: "مدير التسويق", accessRole: "admin" },
+    { key: "sara", name: "سارة العلي", email: "sara@globalcars.iq", role: "مصممة جرافيك", accessRole: "teamMember" },
+    { key: "ali", name: "علي حسن", email: "ali@globalcars.iq", role: "مسؤول حملات إعلانية", accessRole: "campaignManager" },
+    { key: "noor", name: "نور محمد", email: "noor@globalcars.iq", role: "منشئة محتوى", accessRole: "teamMember" },
+    { key: "hussein", name: "حسين كريم", email: "hussein@globalcars.iq", role: "محلل بيانات", accessRole: "analyst" },
   ];
   const users: Record<string, string> = {};
   for (const u of usersData) {
     const user = await prisma.user.upsert({
       where: { email: u.email },
-      update: {},
-      create: { companyId: company.id, name: u.name, email: u.email, role: u.role },
+      update: { role: u.role, accessRoleId: roles[u.accessRole], passwordHash: demoPasswordHash },
+      create: {
+        companyId: company.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        accessRoleId: roles[u.accessRole],
+        passwordHash: demoPasswordHash,
+      },
     });
     users[u.key] = user.id;
   }
@@ -248,6 +341,11 @@ async function main() {
   }
 
   console.log("✅ Seed data created successfully.");
+  console.log("");
+  console.log("Demo logins (password for all: " + DEMO_PASSWORD + "):");
+  for (const u of usersData) {
+    console.log(`  ${u.email}  —  ${rolesData.find((r) => r.key === u.accessRole)?.name}`);
+  }
 }
 
 main()

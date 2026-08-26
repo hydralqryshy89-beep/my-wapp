@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { assertPermission } from "@/lib/permissions";
 
 function str(formData: FormData, key: string): string {
   return (formData.get(key) as string | null)?.trim() ?? "";
@@ -31,6 +32,7 @@ function revalidateAll(planId: string) {
 }
 
 export async function createObjective(formData: FormData) {
+  await assertPermission("objectives", "EDIT");
   const data = readFields(formData);
   await prisma.objective.create({ data });
   revalidateAll(data.planId);
@@ -38,6 +40,7 @@ export async function createObjective(formData: FormData) {
 }
 
 export async function updateObjective(id: string, formData: FormData) {
+  await assertPermission("objectives", "EDIT");
   const data = readFields(formData);
   await prisma.objective.update({ where: { id }, data });
   revalidateAll(data.planId);
@@ -46,6 +49,7 @@ export async function updateObjective(id: string, formData: FormData) {
 
 export async function deleteObjective(id: string, _formData: FormData) {
   void _formData;
+  await assertPermission("objectives", "EDIT");
   const obj = await prisma.objective.delete({ where: { id } });
   revalidateAll(obj.planId);
   redirect(`/plans/${obj.planId}?tab=objectives`);
@@ -53,6 +57,7 @@ export async function deleteObjective(id: string, _formData: FormData) {
 
 export async function deleteObjectiveFromList(id: string, _formData: FormData) {
   void _formData;
+  await assertPermission("objectives", "EDIT");
   await prisma.objective.delete({ where: { id } });
   revalidatePath("/objectives");
   revalidatePath("/dashboard");

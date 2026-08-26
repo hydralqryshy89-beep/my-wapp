@@ -65,3 +65,38 @@ export const PRIORITY_BADGE_STYLES: Record<string, string> = {
   "متوسطة": "bg-amber-50 text-amber-700 ring-amber-200",
   "عالية": "bg-rose-50 text-rose-700 ring-rose-200",
 };
+
+// Access control: every app section a role's access can be scoped to.
+// "dashboard" is intentionally excluded — the overview is visible to any
+// signed-in user regardless of role.
+export const PERMISSION_RESOURCES = [
+  "plans",
+  "objectives",
+  "campaigns",
+  "content",
+  "budget",
+  "analytics",
+  "tasks",
+  "settings",
+] as const;
+export type PermissionResource = (typeof PERMISSION_RESOURCES)[number];
+
+export const PERMISSION_RESOURCE_LABELS: Record<PermissionResource, string> = {
+  plans: "الخطة التسويقية",
+  objectives: "الأهداف و KPI",
+  campaigns: "الحملات",
+  content: "تقويم المحتوى",
+  budget: "الميزانية",
+  analytics: "النتائج والتحليلات",
+  tasks: "الفريق والمهام",
+  settings: "الإعدادات",
+};
+
+export const PERMISSION_LEVELS = ["NONE", "VIEW", "EDIT"] as const;
+export type PermissionLevel = (typeof PERMISSION_LEVELS)[number];
+
+export const PERMISSION_LEVEL_LABELS: Record<PermissionLevel, string> = {
+  NONE: "بدون وصول",
+  VIEW: "عرض فقط",
+  EDIT: "عرض وتعديل",
+};
