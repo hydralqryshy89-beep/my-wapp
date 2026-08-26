@@ -6,7 +6,9 @@ import { Field, Input, Select } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { AccessDenied } from "@/components/ui/access-denied";
-import { CURRENCIES, PERMISSION_RESOURCES, PERMISSION_RESOURCE_LABELS, PERMISSION_LEVELS, PERMISSION_LEVEL_LABELS } from "@/lib/constants";
+import { RoleForm } from "@/components/settings/role-form";
+import { UserForm } from "@/components/settings/user-form";
+import { CURRENCIES, type PermissionLevel, type PermissionResource } from "@/lib/constants";
 import { getCompany } from "@/lib/data/company";
 import { requireUser, can } from "@/lib/permissions";
 import {
@@ -149,74 +151,23 @@ export default async function SettingsPage() {
             ) : (
               <>
                 {users.map((u) => (
-                  <div key={u.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
-                    <form action={updateUser.bind(null, u.id)} className="flex flex-1 flex-wrap items-center gap-2">
-                      <input name="name" defaultValue={u.name} required className="min-w-32 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm" />
-                      <input
-                        name="email"
-                        type="email"
-                        defaultValue={u.email}
-                        required
-                        className="min-w-40 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                        dir="ltr"
+                  <div key={u.id} className="flex flex-wrap items-start gap-2 rounded-lg border border-border p-3">
+                    <div className="flex-1">
+                      <UserForm
+                        action={updateUser.bind(null, u.id)}
+                        submitLabel="حفظ"
+                        roles={roles}
+                        defaultName={u.name}
+                        defaultEmail={u.email}
+                        defaultRole={u.role ?? ""}
+                        defaultAccessRoleId={u.accessRoleId ?? ""}
                       />
-                      <input
-                        name="role"
-                        defaultValue={u.role ?? ""}
-                        placeholder="المسمى الوظيفي"
-                        className="min-w-32 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                      />
-                      <select
-                        name="accessRoleId"
-                        defaultValue={u.accessRoleId ?? ""}
-                        className="min-w-32 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                      >
-                        <option value="">بدون صلاحيات (بدون دخول فعّال)</option>
-                        {roles.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        name="password"
-                        type="password"
-                        placeholder="كلمة مرور جديدة (اتركه فارغاً لعدم التغيير)"
-                        dir="ltr"
-                        className="min-w-56 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                      />
-                      <Button type="submit" size="sm" variant="outline">
-                        حفظ
-                      </Button>
-                    </form>
+                    </div>
                     <DeleteButton action={deleteUser.bind(null, u.id)} confirmText="سيتم حذف المستخدم. هل أنت متأكد؟" />
                   </div>
                 ))}
 
-                <form action={createUser.bind(null, company.id)} className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border p-3">
-                  <input name="name" required placeholder="اسم العضو" className="min-w-32 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm" />
-                  <input name="email" type="email" required placeholder="البريد الإلكتروني" dir="ltr" className="min-w-40 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm" />
-                  <input name="role" placeholder="المسمى الوظيفي" className="min-w-32 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm" />
-                  <select name="accessRoleId" defaultValue="" className="min-w-32 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
-                    <option value="">بدون صلاحيات (بدون دخول فعّال)</option>
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    placeholder="كلمة مرور (8 أحرف على الأقل)"
-                    dir="ltr"
-                    className="min-w-56 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                  />
-                  <Button type="submit" size="sm">
-                    + إضافة عضو
-                  </Button>
-                </form>
+                <UserForm action={createUser.bind(null, company.id)} submitLabel="+ إضافة عضو" roles={roles} passwordRequired dashed />
               </>
             )}
           </CardContent>
@@ -234,86 +185,32 @@ export default async function SettingsPage() {
                 لكل دور صلاحية مستقلة لكل قسم من النظام (بدون وصول / عرض فقط / عرض وتعديل). دور «مدير النظام» يملك وصولاً
                 كاملاً لكل شي بغض النظر عن الجدول أدناه.
               </p>
-              {roles.map((role) => (
-                <div key={role.id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
-                  <form action={updateRole.bind(null, role.id)} className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <input
-                        name="name"
-                        defaultValue={role.name}
-                        required
-                        className="min-w-40 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium"
-                      />
-                      <label className="flex items-center gap-1.5 text-xs text-muted">
-                        <input type="checkbox" name="isAdmin" defaultChecked={role.isAdmin} className="h-4 w-4 rounded border-border" />
-                        مدير النظام (وصول كامل)
-                      </label>
-                      <Button type="submit" size="sm" variant="outline">
-                        حفظ
-                      </Button>
+              {roles.map((role) => {
+                const defaultPermissions = Object.fromEntries(role.permissions.map((p) => [p.resource, p.level])) as Partial<
+                  Record<PermissionResource, PermissionLevel>
+                >;
+                return (
+                  <div key={role.id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
+                    <RoleForm
+                      action={updateRole.bind(null, role.id)}
+                      submitLabel="حفظ"
+                      defaultName={role.name}
+                      defaultIsAdmin={role.isAdmin}
+                      defaultPermissions={defaultPermissions}
+                    />
+                    <div>
+                      <DeleteButton action={deleteRole.bind(null, role.id)} confirmText="سيتم حذف هذا الدور. هل أنت متأكد؟" />
                     </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                      {PERMISSION_RESOURCES.map((resource) => {
-                        const current = role.permissions.find((p) => p.resource === resource)?.level ?? "NONE";
-                        return (
-                          <label key={resource} className="flex flex-col gap-1 text-xs">
-                            <span className="text-muted">{PERMISSION_RESOURCE_LABELS[resource]}</span>
-                            <select
-                              name={`perm_${resource}`}
-                              defaultValue={current}
-                              className="rounded-lg border border-border bg-surface px-2 py-1.5 text-xs"
-                            >
-                              {PERMISSION_LEVELS.map((level) => (
-                                <option key={level} value={level}>
-                                  {PERMISSION_LEVEL_LABELS[level]}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </form>
-                  <div>
-                    <DeleteButton action={deleteRole.bind(null, role.id)} confirmText="سيتم حذف هذا الدور. هل أنت متأكد؟" />
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
-              <form
+              <RoleForm
                 action={createRole.bind(null, company.id)}
-                className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-4"
-              >
-                <div className="flex flex-wrap items-center gap-3">
-                  <input
-                    name="name"
-                    required
-                    placeholder="اسم الدور الجديد (مثال: مسؤول حملات)"
-                    className="min-w-40 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                  />
-                  <label className="flex items-center gap-1.5 text-xs text-muted">
-                    <input type="checkbox" name="isAdmin" className="h-4 w-4 rounded border-border" />
-                    مدير النظام (وصول كامل)
-                  </label>
-                  <Button type="submit" size="sm">
-                    + إضافة دور
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  {PERMISSION_RESOURCES.map((resource) => (
-                    <label key={resource} className="flex flex-col gap-1 text-xs">
-                      <span className="text-muted">{PERMISSION_RESOURCE_LABELS[resource]}</span>
-                      <select name={`perm_${resource}`} defaultValue="NONE" className="rounded-lg border border-border bg-surface px-2 py-1.5 text-xs">
-                        {PERMISSION_LEVELS.map((level) => (
-                          <option key={level} value={level}>
-                            {PERMISSION_LEVEL_LABELS[level]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ))}
-                </div>
-              </form>
+                submitLabel="+ إضافة دور"
+                namePlaceholder="اسم الدور الجديد (مثال: مسؤول حملات)"
+                dashed
+              />
             </CardContent>
           </Card>
         )}

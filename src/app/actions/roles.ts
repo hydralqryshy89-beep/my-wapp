@@ -27,7 +27,16 @@ async function requireAdmin() {
   return user;
 }
 
-export async function createRole(companyId: string, formData: FormData) {
+// createRole/updateRole return an error message (or undefined on success) instead of
+// throwing: Next.js redacts thrown Server Action error messages in production builds,
+// so an admin who accidentally locks everyone out (see updateRole's guard below) would
+// only ever see a generic "something went wrong" — this way the real reason shows up
+// inline via useActionState (see src/components/settings/role-form.tsx).
+export async function createRole(
+  companyId: string,
+  _prevState: string | undefined,
+  formData: FormData
+): Promise<string | undefined> {
   await requireAdmin();
   const name = str(formData, "name");
   const isAdmin = formData.get("isAdmin") === "on";
@@ -42,13 +51,27 @@ export async function createRole(companyId: string, formData: FormData) {
     },
   });
   revalidatePath("/settings");
+  return undefined;
 }
 
-export async function updateRole(id: string, formData: FormData) {
-  await requireAdmin();
+export async function updateRole(
+  id: string,
+  _prevState: string | undefined,
+  formData: FormData
+): Promise<string | undefined> {
+  const admin = await requireAdmin();
   const name = str(formData, "name");
   const isAdmin = formData.get("isAdmin") === "on";
   const permissions = readPermissions(formData);
+
+  if (!isAdmin) {
+    const otherAdminRoles = await prisma.role.count({
+      where: { companyId: admin.companyId ?? undefined, isAdmin: true, id: { not: id } },
+    });
+    if (otherAdminRoles === 0) {
+      return "لا يمكن إزالة صلاحية «مدير النظام» من هذا الدور لأنه آخر دور إداري — سيفقد الجميع القدرة على إدارة الأدوار والمستخدمين. أنشئ دوراً إدارياً آخر أولاً.";
+    }
+  }
 
   await prisma.$transaction([
     prisma.role.update({ where: { id }, data: { name, isAdmin } }),
@@ -61,14 +84,24 @@ export async function updateRole(id: string, formData: FormData) {
     ),
   ]);
   revalidatePath("/settings");
+  return undefined;
 }
 
 export async function deleteRole(id: string, _formData: FormData) {
   void _formData;
-  await requireAdmin();
+  const admin = await requireAdmin();
   const assignedCount = await prisma.user.count({ where: { accessRoleId: id } });
   if (assignedCount > 0) {
     throw new Error("لا يمكن حذف هذا الدور لأنه مرتبط بأعضاء حالياً. أعد تعيين دورهم أولاً.");
+  }
+  const role = await prisma.role.findUnique({ where: { id } });
+  if (role?.isAdmin) {
+    const otherAdminRoles = await prisma.role.count({
+      where: { companyId: admin.companyId ?? undefined, isAdmin: true, id: { not: id } },
+    });
+    if (otherAdminRoles === 0) {
+      throw new Error("لا يمكن حذف هذا الدور لأنه آخر دور إداري في النظام.");
+    }
   }
   await prisma.role.delete({ where: { id } });
   revalidatePath("/settings");
