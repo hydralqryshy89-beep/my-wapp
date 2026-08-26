@@ -63,43 +63,66 @@ async function requireAdmin() {
   return user;
 }
 
-export async function createUser(companyId: string, formData: FormData) {
+// See roles.ts for why these return an error message instead of throwing it.
+export async function createUser(
+  companyId: string,
+  _prevState: string | undefined,
+  formData: FormData
+): Promise<string | undefined> {
   await requireAdmin();
   const password = (formData.get("password") as string | null) ?? "";
   if (!password || password.length < 8) {
-    throw new Error("كلمة المرور مطلوبة (8 أحرف على الأقل) عند إضافة عضو جديد");
+    return "كلمة المرور مطلوبة (8 أحرف على الأقل) عند إضافة عضو جديد";
   }
   const accessRoleId = str(formData, "accessRoleId");
+  const email = str(formData, "email").toLowerCase();
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return "هذا البريد الإلكتروني مستخدم من قبل عضو آخر بالفعل";
+  }
 
   await prisma.user.create({
     data: {
       companyId,
       name: str(formData, "name"),
-      email: str(formData, "email").toLowerCase(),
+      email,
       role: str(formData, "role") || null,
       passwordHash: await hashPassword(password),
       accessRoleId: accessRoleId || null,
     },
   });
   revalidatePath("/settings");
+  return undefined;
 }
 
-export async function updateUser(id: string, formData: FormData) {
+export async function updateUser(
+  id: string,
+  _prevState: string | undefined,
+  formData: FormData
+): Promise<string | undefined> {
   await requireAdmin();
   const password = (formData.get("password") as string | null) ?? "";
   const accessRoleId = str(formData, "accessRoleId");
+  const email = str(formData, "email").toLowerCase();
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing && existing.id !== id) {
+    return "هذا البريد الإلكتروني مستخدم من قبل عضو آخر بالفعل";
+  }
 
   await prisma.user.update({
     where: { id },
     data: {
       name: str(formData, "name"),
-      email: str(formData, "email").toLowerCase(),
+      email,
       role: str(formData, "role") || null,
       accessRoleId: accessRoleId || null,
       ...(password ? { passwordHash: await hashPassword(password) } : {}),
     },
   });
   revalidatePath("/settings");
+  return undefined;
 }
 
 export async function deleteUser(id: string, _formData: FormData) {

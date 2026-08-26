@@ -123,6 +123,14 @@ async function main() {
     }
   }
 
+  // Bootstrap safety net: the "seed-role-admin" role is the only way into the
+  // Roles & Permissions and Users screens (both are admin-only), so if it ever
+  // loses isAdmin — e.g. an accidental save with the checkbox unticked, before
+  // the guard in src/app/actions/roles.ts existed to stop that — nobody could
+  // fix it back from the UI anymore. Unlike every other seed row, always force
+  // this one back to true rather than leaving it alone once created.
+  await prisma.role.update({ where: { id: "seed-role-admin" }, data: { isAdmin: true } });
+
   // ---- Users -----------------------------------------------------------
   // Demo login for every seeded user, for trying out the different roles:
   const DEMO_PASSWORD = "Demo@12345";
