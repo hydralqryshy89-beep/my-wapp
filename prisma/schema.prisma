@@ -26,6 +26,8 @@ model Company {
   plans  Plan[]
   users  User[]
   roles  Role[]
+
+  metaConnection MetaConnection?
 }
 
 model Brand {
@@ -223,4 +225,27 @@ model RolePermission {
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, resource])
+}
+
+// Meta (Facebook) Marketing API connection — Phase 1 of the Meta integration:
+// OAuth connect/disconnect only, no campaign/ad/insight data yet (see src/app/api/meta
+// and src/app/actions/meta.ts). One connection per company (companyId is unique), so
+// connecting again simply replaces the existing row rather than creating a second one.
+// accessTokenEncrypted is AES-256-GCM ciphertext (see src/lib/meta/encryption.ts) —
+// never a plaintext token — and is never returned to the client.
+model MetaConnection {
+  id                   String    @id @default(cuid())
+  companyId            String    @unique
+  accessTokenEncrypted String
+  tokenExpiresAt       DateTime?
+  scopes               String?
+  metaUserId           String?
+  metaUserName         String?
+  connectedAt          DateTime  @default(now())
+  lastSyncAt           DateTime?
+  lastError            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
