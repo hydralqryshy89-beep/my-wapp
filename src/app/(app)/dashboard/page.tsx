@@ -56,14 +56,14 @@ export default async function DashboardPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="الميزانية" value={formatCurrency(data.budget, currency)} icon={Wallet} tone="primary" />
-        <StatCard label="المصروف" value={formatCurrency(data.totalSpend, currency)} icon={TrendingDown} tone="warning" />
-        <StatCard label="الحملات النشطة" value={formatNumber(data.activeCampaigns)} icon={Rocket} tone="success" />
-        <StatCard label="عدد المحتويات" value={formatNumber(data.contentCount)} icon={FileText} tone="primary" />
-        <StatCard label="Leads" value={formatNumber(data.leads)} icon={UserPlus} tone="primary" />
-        <StatCard label="Sales" value={formatNumber(data.sales)} icon={ShoppingCart} tone="success" />
-        <StatCard label="Revenue" value={formatCurrency(data.revenue, currency)} icon={DollarSign} tone="success" />
-        <StatCard label="ROI" value={formatPercent(data.roi)} icon={Percent} tone={data.roi >= 0 ? "success" : "danger"} />
+        <StatCard label="الميزانية" value={formatCurrency(data.budget, currency)} icon={Wallet} tone="navy" />
+        <StatCard label="المصروف" value={formatCurrency(data.totalSpend, currency)} icon={TrendingDown} tone="burgundy" />
+        <StatCard label="الحملات النشطة" value={formatNumber(data.activeCampaigns)} icon={Rocket} tone="indigo" />
+        <StatCard label="عدد المحتويات" value={formatNumber(data.contentCount)} icon={FileText} tone="teal" />
+        <StatCard label="Leads" value={formatNumber(data.leads)} icon={UserPlus} tone="slate" />
+        <StatCard label="Sales" value={formatNumber(data.sales)} icon={ShoppingCart} tone="plum" />
+        <StatCard label="Revenue" value={formatCurrency(data.revenue, currency)} icon={DollarSign} tone="emerald" />
+        <StatCard label="ROI" value={formatPercent(data.roi)} icon={Percent} tone="gold" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
