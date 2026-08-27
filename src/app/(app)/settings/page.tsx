@@ -2,13 +2,13 @@ import { Building2, Tags, Users, ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, Input, Select } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { AccessDenied } from "@/components/ui/access-denied";
 import { RoleForm } from "@/components/settings/role-form";
 import { UserForm } from "@/components/settings/user-form";
-import { CURRENCIES, type PermissionLevel, type PermissionResource } from "@/lib/constants";
+import { CompanyForm } from "@/components/settings/company-form";
+import { BrandForm } from "@/components/settings/brand-form";
+import { type PermissionLevel, type PermissionResource } from "@/lib/constants";
 import { getCompany } from "@/lib/data/company";
 import { requireUser, can } from "@/lib/permissions";
 import {
@@ -47,34 +47,14 @@ export default async function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form action={updateCompany.bind(null, company.id)} className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <Field label="اسم الشركة" htmlFor="name" required>
-                <Input id="name" name="name" required defaultValue={company.name} disabled={!canEdit} />
-              </Field>
-              <Field label="رابط الشعار" htmlFor="logo">
-                <Input id="logo" name="logo" defaultValue={company.logo ?? ""} placeholder="https://..." disabled={!canEdit} />
-              </Field>
-              <Field label="العملة" htmlFor="currency">
-                <Select id="currency" name="currency" defaultValue={company.currency} disabled={!canEdit}>
-                  {CURRENCIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="اللغة" htmlFor="language">
-                <Select id="language" name="language" defaultValue={company.language} disabled={!canEdit}>
-                  <option value="ar">العربية</option>
-                  <option value="en">English</option>
-                </Select>
-              </Field>
-              {canEdit && (
-                <div className="md:col-span-2">
-                  <Button type="submit">حفظ بيانات الشركة</Button>
-                </div>
-              )}
-            </form>
+            <CompanyForm
+              action={updateCompany.bind(null, company.id)}
+              defaultName={company.name}
+              defaultLogo={company.logo}
+              defaultCurrency={company.currency}
+              defaultLanguage={company.language}
+              canEdit={canEdit}
+            />
           </CardContent>
         </Card>
 
@@ -85,43 +65,27 @@ export default async function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            {company.brands.map((b) => (
-              <div key={b.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
-                <form action={updateBrand.bind(null, b.id)} className="flex flex-1 flex-wrap items-center gap-2">
-                  <input
-                    name="name"
-                    defaultValue={b.name}
-                    required
-                    disabled={!canEdit}
-                    className="min-w-40 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm disabled:opacity-60"
-                  />
-                  <input
-                    name="logo"
-                    defaultValue={b.logo ?? ""}
-                    placeholder="رابط الشعار (اختياري)"
-                    disabled={!canEdit}
-                    className="min-w-40 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm disabled:opacity-60"
-                  />
-                  {canEdit && (
-                    <Button type="submit" size="sm" variant="outline">
-                      حفظ
-                    </Button>
-                  )}
-                </form>
-                {canEdit && (
+            {company.brands.map((b) =>
+              canEdit ? (
+                <div key={b.id} className="flex flex-wrap items-start gap-2">
+                  <div className="flex-1">
+                    <BrandForm action={updateBrand.bind(null, b.id)} submitLabel="حفظ" defaultName={b.name} defaultLogo={b.logo} />
+                  </div>
                   <DeleteButton action={deleteBrand.bind(null, b.id)} confirmText="سيتم حذف البراند نهائياً. هل أنت متأكد؟" />
-                )}
-              </div>
-            ))}
+                </div>
+              ) : (
+                <div key={b.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                  {b.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={b.logo} alt="" className="h-9 w-9 rounded-lg border border-border object-cover" />
+                  ) : null}
+                  <span className="text-sm font-medium text-foreground">{b.name}</span>
+                </div>
+              )
+            )}
 
             {canEdit && (
-              <form action={createBrand.bind(null, company.id)} className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border p-3">
-                <input name="name" required placeholder="اسم براند جديد" className="min-w-40 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm" />
-                <input name="logo" placeholder="رابط الشعار (اختياري)" className="min-w-40 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm" />
-                <Button type="submit" size="sm">
-                  + إضافة براند
-                </Button>
-              </form>
+              <BrandForm action={createBrand.bind(null, company.id)} submitLabel="+ إضافة براند" dashed />
             )}
           </CardContent>
         </Card>
