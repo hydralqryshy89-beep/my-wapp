@@ -23,9 +23,14 @@ export async function Topbar({ user }: { user: CurrentUser }) {
           <div className="text-sm font-semibold text-foreground">{user.name}</div>
           <div className="text-xs text-muted">{user.accessRoleName ?? user.jobTitle ?? ""}</div>
         </div>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
-          {user.name.slice(0, 1)}
-        </div>
+        {user.avatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={user.avatar} alt="" className="h-9 w-9 rounded-full border border-border object-cover" />
+        ) : (
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
+            {user.name.slice(0, 1)}
+          </div>
+        )}
         <form action={logout}>
           <button
             type="submit"

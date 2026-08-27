@@ -102,6 +102,8 @@ export async function createUser(
   }
   const accessRoleId = str(formData, "accessRoleId");
   const email = str(formData, "email").toLowerCase();
+  const { dataUrl, error } = await readOptionalLogoUpload(formData, "avatarFile");
+  if (error) return error;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -116,6 +118,7 @@ export async function createUser(
       role: str(formData, "role") || null,
       passwordHash: await hashPassword(password),
       accessRoleId: accessRoleId || null,
+      ...(dataUrl ? { avatar: dataUrl } : {}),
     },
   });
   revalidatePath("/settings");
@@ -131,6 +134,8 @@ export async function updateUser(
   const password = (formData.get("password") as string | null) ?? "";
   const accessRoleId = str(formData, "accessRoleId");
   const email = str(formData, "email").toLowerCase();
+  const { dataUrl, error } = await readOptionalLogoUpload(formData, "avatarFile");
+  if (error) return error;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing && existing.id !== id) {
@@ -145,6 +150,7 @@ export async function updateUser(
       role: str(formData, "role") || null,
       accessRoleId: accessRoleId || null,
       ...(password ? { passwordHash: await hashPassword(password) } : {}),
+      ...(dataUrl ? { avatar: dataUrl } : {}),
     },
   });
   revalidatePath("/settings");

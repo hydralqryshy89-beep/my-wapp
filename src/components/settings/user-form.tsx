@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
+import { LogoPicker } from "@/components/settings/logo-picker";
 
 type UserAction = (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
 
@@ -13,6 +14,7 @@ export function UserForm({
   defaultEmail = "",
   defaultRole = "",
   defaultAccessRoleId = "",
+  defaultAvatar = null,
   passwordRequired,
   dashed,
 }: {
@@ -23,6 +25,7 @@ export function UserForm({
   defaultEmail?: string;
   defaultRole?: string;
   defaultAccessRoleId?: string;
+  defaultAvatar?: string | null;
   passwordRequired?: boolean;
   dashed?: boolean;
 }) {
@@ -34,6 +37,7 @@ export function UserForm({
       className={`flex flex-col gap-2 rounded-lg border p-3 ${dashed ? "border-dashed border-border" : "border-border"}`}
     >
       <div className="flex flex-wrap items-center gap-2">
+        <LogoPicker name="avatarFile" defaultLogo={defaultAvatar} size="sm" shape="circle" />
         <input
           name="name"
           defaultValue={defaultName}

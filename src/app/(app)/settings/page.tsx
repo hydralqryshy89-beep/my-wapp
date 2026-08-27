@@ -125,6 +125,7 @@ export default async function SettingsPage() {
                         defaultEmail={u.email}
                         defaultRole={u.role ?? ""}
                         defaultAccessRoleId={u.accessRoleId ?? ""}
+                        defaultAvatar={u.avatar}
                       />
                     </div>
                     <DeleteButton action={deleteUser.bind(null, u.id)} confirmText="سيتم حذف المستخدم. هل أنت متأكد؟" />
