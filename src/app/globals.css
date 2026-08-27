@@ -1,21 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f9;
+  --background: #f5f4f6;
   --surface: #ffffff;
-  --foreground: #1a1d23;
-  --muted: #6b7280;
-  --muted-surface: #f1f2f5;
-  --border: #e5e7eb;
-  --primary: #4338ca;
+  --foreground: #1c1520;
+  --muted: #6b6470;
+  --muted-surface: #f2eef1;
+  --border: #e8e2e6;
+  --primary: #7a1f35;
   --primary-foreground: #ffffff;
-  --primary-soft: #eef2ff;
-  --success: #059669;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --sidebar-bg: #17182b;
-  --sidebar-fg: #cbd0e0;
-  --sidebar-active: #312e81;
+  --primary-soft: #fbeaef;
+  --accent-gold: #b8860b;
+  --accent-gold-foreground: #ffffff;
+  --accent-gold-soft: #fbf3df;
+  --success: #0f7a52;
+  --warning: #b8860b;
+  --danger: #c22a3e;
+  --sidebar-bg: #430f1c;
+  --sidebar-fg: #d9b7c0;
+  --sidebar-active: #7a1f35;
 }
 
 @theme inline {
@@ -28,6 +31,9 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-soft: var(--primary-soft);
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-gold-foreground: var(--accent-gold-foreground);
+  --color-accent-gold-soft: var(--accent-gold-soft);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
