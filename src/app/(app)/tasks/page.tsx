@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, ListChecks, Search, ArrowLeft } from "lucide-react";
+import { Plus, ListChecks, Search, ArrowLeft, ArrowRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
@@ -50,6 +50,10 @@ export default async function TasksPage({
   const nextStatus: Record<string, string> = {
     "جديدة": "قيد التنفيذ",
     "قيد التنفيذ": "مكتملة",
+  };
+  const prevStatus: Record<string, string> = {
+    "قيد التنفيذ": "جديدة",
+    "مكتملة": "قيد التنفيذ",
   };
 
   return (
@@ -151,6 +155,7 @@ export default async function TasksPage({
                   {columnTasks.map((t) => {
                     const overdue = t.dueDate && t.dueDate < new Date() && t.status !== "مكتملة";
                     const next = nextStatus[t.status];
+                    const prev = prevStatus[t.status];
                     return (
                       <Card key={t.id} className="p-3">
                         <div className="mb-2 flex items-start justify-between gap-2">
@@ -166,15 +171,31 @@ export default async function TasksPage({
                             {t.dueDate ? formatDate(t.dueDate) : "—"}
                           </span>
                         </div>
-                        {next && canEdit && (
-                          <form action={updateTaskStatus.bind(null, t.id, next)}>
-                            <button
-                              type="submit"
-                              className="flex w-full items-center justify-center gap-1 rounded-lg bg-primary-soft py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
-                            >
-                              نقل إلى {next} <ArrowLeft size={12} />
-                            </button>
-                          </form>
+                        {canEdit && (next || prev) && (
+                          <div className="flex items-center gap-1.5">
+                            {prev && (
+                              <form action={updateTaskStatus.bind(null, t.id, prev)} className={next ? "shrink-0" : "flex-1"}>
+                                <button
+                                  type="submit"
+                                  title={`نقل إلى ${prev}`}
+                                  className="flex w-full items-center justify-center gap-1 rounded-lg bg-muted-surface py-1.5 text-xs font-semibold text-muted hover:bg-border hover:text-foreground"
+                                >
+                                  <ArrowRight size={12} />
+                                  {!next && <span>نقل إلى {prev}</span>}
+                                </button>
+                              </form>
+                            )}
+                            {next && (
+                              <form action={updateTaskStatus.bind(null, t.id, next)} className="flex-1">
+                                <button
+                                  type="submit"
+                                  className="flex w-full items-center justify-center gap-1 rounded-lg bg-primary-soft py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
+                                >
+                                  نقل إلى {next} <ArrowLeft size={12} />
+                                </button>
+                              </form>
+                            )}
+                          </div>
                         )}
                       </Card>
                     );
