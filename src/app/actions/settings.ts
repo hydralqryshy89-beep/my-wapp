@@ -4,48 +4,74 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { assertPermission } from "@/lib/permissions";
 import { hashPassword } from "@/lib/auth";
+import { readOptionalLogoUpload } from "@/lib/upload";
 
 function str(formData: FormData, key: string): string {
   return (formData.get(key) as string | null)?.trim() ?? "";
 }
 
-export async function updateCompany(id: string, formData: FormData) {
+// See roles.ts for why these return an error message instead of throwing it.
+export async function updateCompany(
+  id: string,
+  _prevState: string | undefined,
+  formData: FormData
+): Promise<string | undefined> {
   await assertPermission("settings", "EDIT");
+  const { dataUrl, error } = await readOptionalLogoUpload(formData, "logoFile");
+  if (error) return error;
+
   await prisma.company.update({
     where: { id },
     data: {
       name: str(formData, "name"),
-      logo: str(formData, "logo") || null,
+      ...(dataUrl ? { logo: dataUrl } : {}),
       currency: str(formData, "currency") || "IQD",
       language: str(formData, "language") || "ar",
     },
   });
   revalidatePath("/settings");
   revalidatePath("/", "layout");
+  return undefined;
 }
 
-export async function createBrand(companyId: string, formData: FormData) {
+export async function createBrand(
+  companyId: string,
+  _prevState: string | undefined,
+  formData: FormData
+): Promise<string | undefined> {
   await assertPermission("settings", "EDIT");
+  const { dataUrl, error } = await readOptionalLogoUpload(formData, "logoFile");
+  if (error) return error;
+
   await prisma.brand.create({
     data: {
       companyId,
       name: str(formData, "name"),
-      logo: str(formData, "logo") || null,
+      logo: dataUrl ?? null,
     },
   });
   revalidatePath("/settings");
+  return undefined;
 }
 
-export async function updateBrand(id: string, formData: FormData) {
+export async function updateBrand(
+  id: string,
+  _prevState: string | undefined,
+  formData: FormData
+): Promise<string | undefined> {
   await assertPermission("settings", "EDIT");
+  const { dataUrl, error } = await readOptionalLogoUpload(formData, "logoFile");
+  if (error) return error;
+
   await prisma.brand.update({
     where: { id },
     data: {
       name: str(formData, "name"),
-      logo: str(formData, "logo") || null,
+      ...(dataUrl ? { logo: dataUrl } : {}),
     },
   });
   revalidatePath("/settings");
+  return undefined;
 }
 
 export async function deleteBrand(id: string, _formData: FormData) {
