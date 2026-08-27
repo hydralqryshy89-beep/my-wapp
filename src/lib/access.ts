@@ -8,6 +8,7 @@ export interface CurrentUser {
   name: string;
   email: string;
   jobTitle: string | null;
+  avatar: string | null;
   companyId: string | null;
   isAdmin: boolean;
   accessRoleName: string | null;

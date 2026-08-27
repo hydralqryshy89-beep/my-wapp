@@ -8,28 +8,32 @@ export function LogoPicker({
   name,
   defaultLogo,
   size = "md",
+  shape = "square",
   disabled,
 }: {
   name: string;
   defaultLogo?: string | null;
   size?: "sm" | "md";
+  shape?: "square" | "circle";
   disabled?: boolean;
 }) {
   const inputId = useId();
   const [preview, setPreview] = useState<string | null>(defaultLogo ?? null);
   const [fileName, setFileName] = useState<string | null>(null);
   const dimension = size === "sm" ? "h-9 w-9" : "h-12 w-12";
+  const roundedClass = shape === "circle" ? "rounded-full" : "rounded-lg";
 
   return (
     <div className="flex items-center gap-3">
       {preview ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={preview} alt="" className={cn(dimension, "shrink-0 rounded-lg border border-border object-cover")} />
+        <img src={preview} alt="" className={cn(dimension, roundedClass, "shrink-0 border border-border object-cover")} />
       ) : (
         <div
           className={cn(
             dimension,
-            "flex shrink-0 items-center justify-center rounded-lg border border-dashed border-border text-muted"
+            roundedClass,
+            "flex shrink-0 items-center justify-center border border-dashed border-border text-muted"
           )}
         >
           <ImagePlus size={size === "sm" ? 14 : 18} />

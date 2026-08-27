@@ -38,6 +38,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     name: user.name,
     email: user.email,
     jobTitle: user.role,
+    avatar: user.avatar,
     companyId: user.companyId,
     isAdmin: user.accessRole?.isAdmin ?? false,
     accessRoleName: user.accessRole?.name ?? null,
