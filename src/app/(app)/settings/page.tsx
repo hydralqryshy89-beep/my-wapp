@@ -11,6 +11,7 @@ import { UserForm } from "@/components/settings/user-form";
 import { CompanyForm } from "@/components/settings/company-form";
 import { BrandForm } from "@/components/settings/brand-form";
 import { MetaDisconnectButton } from "@/components/settings/meta-disconnect-button";
+import { MetaAdAccounts } from "@/components/settings/meta-ad-accounts";
 import { type PermissionLevel, type PermissionResource } from "@/lib/constants";
 import { getCompany } from "@/lib/data/company";
 import { formatDate } from "@/lib/format";
@@ -25,7 +26,7 @@ import {
   deleteUser,
 } from "@/app/actions/settings";
 import { createRole, updateRole, deleteRole } from "@/app/actions/roles";
-import { disconnectMeta } from "@/app/actions/meta";
+import { disconnectMeta, fetchMetaAdAccounts, assignMetaAdAccountBrand } from "@/app/actions/meta";
 
 const META_ERROR_MESSAGES: Record<string, string> = {
   forbidden: "ربط Meta متاح فقط لمدير النظام.",
@@ -57,6 +58,9 @@ export default async function SettingsPage({
       ? prisma.metaConnection.findUnique({ where: { companyId: company.id } })
       : Promise.resolve(null),
   ]);
+  const metaAdAccounts = metaConnection
+    ? await prisma.metaAdAccount.findMany({ where: { connectionId: metaConnection.id }, orderBy: { accountName: "asc" } })
+    : [];
 
   return (
     <div>
@@ -257,6 +261,13 @@ export default async function SettingsPage({
                     </a>
                     <MetaDisconnectButton action={disconnectMeta} />
                   </div>
+
+                  <MetaAdAccounts
+                    accounts={metaAdAccounts}
+                    brands={company.brands}
+                    fetchAction={fetchMetaAdAccounts}
+                    assignAction={assignMetaAdAccountBrand}
+                  />
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">

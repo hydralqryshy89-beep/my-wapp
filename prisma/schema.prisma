@@ -41,6 +41,8 @@ model Brand {
   company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   plans     Plan[]
   campaigns Campaign[]
+
+  metaAdAccount MetaAdAccount?
 }
 
 model Plan {
@@ -248,4 +250,28 @@ model MetaConnection {
   updatedAt            DateTime  @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  adAccounts MetaAdAccount[]
+}
+
+// One Meta connection can see several ad accounts (e.g. one per Brand — BYD,
+// MG, ROX each have their own). Phase 2 only lists and links these accounts
+// to a local Brand — no campaigns/insights are pulled through them yet.
+// brandId is optional and unique: an account starts unassigned after a
+// fetch, and at most one ad account maps to a given Brand at a time.
+model MetaAdAccount {
+  id            String   @id @default(cuid())
+  connectionId  String
+  brandId       String?  @unique
+  metaAccountId String
+  accountName   String
+  currency      String?
+  status        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  connection MetaConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  brand      Brand?          @relation(fields: [brandId], references: [id])
+
+  @@unique([connectionId, metaAccountId])
 }
