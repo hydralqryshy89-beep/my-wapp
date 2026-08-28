@@ -125,3 +125,114 @@ export async function assignMetaAdAccountBrand(
   revalidatePath("/settings");
   return undefined;
 }
+
+interface MetaCampaignApiRow {
+  id: string;
+  name: string;
+  status?: string;
+  objective?: string;
+  daily_budget?: string;
+  lifetime_budget?: string;
+  start_time?: string;
+  stop_time?: string;
+}
+
+// Meta returns budgets in the account currency's minor unit, scaled by a
+// fixed 100x for every currency — see the MetaCampaign schema comment.
+function parseMetaBudget(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n / 100 : null;
+}
+
+// Pulls campaigns (list only — no ad sets, ads, or insights) for every ad
+// account already fetched via fetchMetaAdAccounts, regardless of whether
+// it's linked to a Brand yet. One account failing (e.g. the token no longer
+// has access to it) doesn't abort the others — errors are collected and
+// summarized in MetaConnection.lastError instead.
+export async function syncMetaCampaigns(
+  _prevState: string | undefined,
+  _formData: FormData
+): Promise<string | undefined> {
+  void _formData;
+  const user = await requireAdmin();
+  if (!user.companyId) return "الحساب الحالي غير مرتبط بأي شركة.";
+
+  const connection = await prisma.metaConnection.findUnique({
+    where: { companyId: user.companyId },
+    include: { adAccounts: true },
+  });
+  if (!connection) return "لا يوجد اتصال Meta فعّال. اربط الحساب أولاً.";
+  if (connection.adAccounts.length === 0) {
+    return "لا توجد حسابات إعلانية مجلوبة بعد. اذهب لقسم Meta Integration بالإعدادات واضغط \"جلب الحسابات الإعلانية\" أولاً.";
+  }
+  if (connection.tokenExpiresAt && connection.tokenExpiresAt < new Date()) {
+    return "انتهت صلاحية رمز الوصول. أعد الربط من قسم Meta Integration بالإعدادات.";
+  }
+
+  const accessToken = decryptToken(connection.accessTokenEncrypted);
+  const failures: string[] = [];
+  let syncedCount = 0;
+
+  for (const account of connection.adAccounts) {
+    let campaigns: MetaCampaignApiRow[];
+    try {
+      campaigns = await metaGraphGetAllPages<MetaCampaignApiRow>(`act_${account.metaAccountId}/campaigns`, accessToken, {
+        fields: "id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time",
+        limit: "100",
+      });
+    } catch (err) {
+      const message = err instanceof MetaGraphError ? err.message : "فشل غير متوقع";
+      failures.push(`${account.accountName}: ${message}`);
+      continue;
+    }
+
+    await prisma.$transaction(
+      campaigns.map((c) =>
+        prisma.metaCampaign.upsert({
+          where: { adAccountId_metaCampaignId: { adAccountId: account.id, metaCampaignId: c.id } },
+          create: {
+            adAccountId: account.id,
+            metaCampaignId: c.id,
+            name: c.name,
+            status: c.status ?? null,
+            objective: c.objective ?? null,
+            dailyBudget: parseMetaBudget(c.daily_budget),
+            lifetimeBudget: parseMetaBudget(c.lifetime_budget),
+            startTime: c.start_time ? new Date(c.start_time) : null,
+            stopTime: c.stop_time ? new Date(c.stop_time) : null,
+          },
+          update: {
+            name: c.name,
+            status: c.status ?? null,
+            objective: c.objective ?? null,
+            dailyBudget: parseMetaBudget(c.daily_budget),
+            lifetimeBudget: parseMetaBudget(c.lifetime_budget),
+            startTime: c.start_time ? new Date(c.start_time) : null,
+            stopTime: c.stop_time ? new Date(c.stop_time) : null,
+          },
+        })
+      )
+    );
+    syncedCount += campaigns.length;
+  }
+
+  await prisma.metaConnection.update({
+    where: { id: connection.id },
+    data: {
+      lastSyncAt: new Date(),
+      lastError: failures.length > 0 ? failures.join(" | ") : null,
+    },
+  });
+
+  revalidatePath("/campaigns");
+  revalidatePath("/settings");
+
+  if (failures.length > 0 && syncedCount === 0) {
+    return `فشلت مزامنة الحملات: ${failures.join(" | ")}`;
+  }
+  if (failures.length > 0) {
+    return `تمت مزامنة ${syncedCount} حملة، لكن فشلت بعض الحسابات: ${failures.join(" | ")}`;
+  }
+  return undefined;
+}

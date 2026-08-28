@@ -15,3 +15,18 @@ export function formatMetaAccountStatus(status: string | null): string {
   if (!status) return "—";
   return ACCOUNT_STATUS_LABELS[status] ?? status;
 }
+
+// Meta campaign status values are already plain words (ACTIVE, PAUSED, ...) — just Arabic-label them.
+const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "نشطة",
+  PAUSED: "متوقفة مؤقتاً",
+  DELETED: "محذوفة",
+  ARCHIVED: "مؤرشفة",
+  IN_PROCESS: "قيد المعالجة",
+  WITH_ISSUES: "بها مشاكل",
+};
+
+export function formatMetaCampaignStatus(status: string | null): string {
+  if (!status) return "—";
+  return CAMPAIGN_STATUS_LABELS[status] ?? status;
+}

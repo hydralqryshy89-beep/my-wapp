@@ -272,6 +272,32 @@ model MetaAdAccount {
 
   connection MetaConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   brand      Brand?          @relation(fields: [brandId], references: [id])
+  campaigns  MetaCampaign[]
 
   @@unique([connectionId, metaAccountId])
+}
+
+// Phase 3: a read-only mirror of each ad account's campaigns from Meta —
+// listed and shown in a separate "حملات Meta" tab, never merged into the
+// local Campaign model and never editable here (no create/update/delete
+// against Meta). daily_budget/lifetime_budget come back from the Graph API
+// in the ad account's currency's minor unit (Meta applies a fixed x100
+// scale for every currency), so they're divided by 100 before storing.
+model MetaCampaign {
+  id             String    @id @default(cuid())
+  adAccountId    String
+  metaCampaignId String
+  name           String
+  status         String?
+  objective      String?
+  dailyBudget    Float?
+  lifetimeBudget Float?
+  startTime      DateTime?
+  stopTime       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  adAccount MetaAdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([adAccountId, metaCampaignId])
 }
