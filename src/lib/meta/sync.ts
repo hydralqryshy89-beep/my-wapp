@@ -94,6 +94,19 @@ function parseMetaBudget(raw: string | undefined): number | null {
   return Number.isFinite(n) ? n / 100 : null;
 }
 
+// Some campaigns/ad sets come back from Meta with a start/end time right at
+// the Unix epoch (displays as "31 Dec 1969" in Baghdad's timezone) instead
+// of an absent field — seen on old or API-created objects. No real campaign
+// starts in 1969, so treat anything before year 2000 as "not set" rather
+// than showing a nonsensical date. Exported so actions/meta.ts (ad sets)
+// uses the same guard.
+export function parseMetaDate(raw: string | undefined): Date | null {
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.getUTCFullYear() < 2000 ? null : d;
+}
+
 // Pulls campaigns (list only — no ad sets, ads, or insights) for every ad
 // account already fetched via syncAdAccounts, regardless of whether it's
 // linked to a Brand yet. One account failing doesn't abort the others.
@@ -137,8 +150,8 @@ export async function syncCampaigns(connectionId: string): Promise<SyncOutcome> 
             objective: c.objective ?? null,
             dailyBudget: parseMetaBudget(c.daily_budget),
             lifetimeBudget: parseMetaBudget(c.lifetime_budget),
-            startTime: c.start_time ? new Date(c.start_time) : null,
-            stopTime: c.stop_time ? new Date(c.stop_time) : null,
+            startTime: parseMetaDate(c.start_time),
+            stopTime: parseMetaDate(c.stop_time),
           },
           update: {
             name: c.name,
@@ -146,8 +159,8 @@ export async function syncCampaigns(connectionId: string): Promise<SyncOutcome> 
             objective: c.objective ?? null,
             dailyBudget: parseMetaBudget(c.daily_budget),
             lifetimeBudget: parseMetaBudget(c.lifetime_budget),
-            startTime: c.start_time ? new Date(c.start_time) : null,
-            stopTime: c.stop_time ? new Date(c.stop_time) : null,
+            startTime: parseMetaDate(c.start_time),
+            stopTime: parseMetaDate(c.stop_time),
           },
         })
       )

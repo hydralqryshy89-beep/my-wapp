@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { assertPermission } from "@/lib/permissions";
 import { decryptToken } from "@/lib/meta/encryption";
 import { metaGraphGetAllPages, MetaGraphError } from "@/lib/meta/graph";
-import { syncAdAccounts, syncCampaigns, syncInsights } from "@/lib/meta/sync";
+import { syncAdAccounts, syncCampaigns, syncInsights, parseMetaDate } from "@/lib/meta/sync";
 
 // Meta connection management is admin-only, same reasoning as roles.ts/settings.ts's
 // local requireAdmin(): it's a privilege-escalation-adjacent surface (here, access to
@@ -226,8 +226,8 @@ export async function syncMetaAdSetsAndAds(
         status: adSetRow.status ?? null,
         dailyBudget: parseMetaBudget(adSetRow.daily_budget),
         lifetimeBudget: parseMetaBudget(adSetRow.lifetime_budget),
-        startTime: adSetRow.start_time ? new Date(adSetRow.start_time) : null,
-        stopTime: adSetRow.end_time ? new Date(adSetRow.end_time) : null,
+        startTime: parseMetaDate(adSetRow.start_time),
+        stopTime: parseMetaDate(adSetRow.end_time),
         targetingSummary: buildTargetingSummary(adSetRow.targeting),
       },
       update: {
@@ -235,8 +235,8 @@ export async function syncMetaAdSetsAndAds(
         status: adSetRow.status ?? null,
         dailyBudget: parseMetaBudget(adSetRow.daily_budget),
         lifetimeBudget: parseMetaBudget(adSetRow.lifetime_budget),
-        startTime: adSetRow.start_time ? new Date(adSetRow.start_time) : null,
-        stopTime: adSetRow.end_time ? new Date(adSetRow.end_time) : null,
+        startTime: parseMetaDate(adSetRow.start_time),
+        stopTime: parseMetaDate(adSetRow.end_time),
         targetingSummary: buildTargetingSummary(adSetRow.targeting),
       },
     });
