@@ -1,15 +1,20 @@
-import { Building2, Tags, Users, ShieldCheck } from "lucide-react";
+import { Building2, Tags, Users, ShieldCheck, PlugZap, CheckCircle2, ShieldAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonBase, buttonVariants, buttonSizes } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { AccessDenied } from "@/components/ui/access-denied";
 import { RoleForm } from "@/components/settings/role-form";
 import { UserForm } from "@/components/settings/user-form";
 import { CompanyForm } from "@/components/settings/company-form";
 import { BrandForm } from "@/components/settings/brand-form";
+import { MetaDisconnectButton } from "@/components/settings/meta-disconnect-button";
+import { MetaAdAccounts } from "@/components/settings/meta-ad-accounts";
 import { type PermissionLevel, type PermissionResource } from "@/lib/constants";
 import { getCompany } from "@/lib/data/company";
+import { formatDate } from "@/lib/format";
 import { requireUser, can } from "@/lib/permissions";
 import {
   updateCompany,
@@ -21,19 +26,41 @@ import {
   deleteUser,
 } from "@/app/actions/settings";
 import { createRole, updateRole, deleteRole } from "@/app/actions/roles";
+import { disconnectMeta, fetchMetaAdAccounts, assignMetaAdAccountBrand } from "@/app/actions/meta";
 
-export default async function SettingsPage() {
+const META_ERROR_MESSAGES: Record<string, string> = {
+  forbidden: "ربط Meta متاح فقط لمدير النظام.",
+  not_configured: "تكامل Meta غير مهيأ بعد على الخادم (متغيرات البيئة الخاصة بـ Meta غير مضبوطة).",
+  invalid_state: "انتهت صلاحية طلب الربط أو فشل التحقق منه. حاول مرة أخرى.",
+  oauth_denied: "تم إلغاء عملية الربط مع Meta.",
+  missing_code: "لم يتم استلام رمز التفويض من Meta.",
+  token_exchange_failed: "فشل الحصول على رمز الوصول من Meta. حاول مرة أخرى لاحقاً.",
+  no_company: "الحساب الحالي غير مرتبط بأي شركة.",
+};
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ metaError?: string; metaConnected?: string }>;
+}) {
+  const sp = await searchParams;
   const user = await requireUser();
   if (!can(user, "settings", "VIEW")) return <AccessDenied label="الإعدادات" />;
   const canEdit = can(user, "settings", "EDIT");
 
   const company = await getCompany();
-  const [users, roles] = await Promise.all([
+  const [users, roles, metaConnection] = await Promise.all([
     prisma.user.findMany({ where: { companyId: company.id }, include: { accessRole: true }, orderBy: { name: "asc" } }),
     user.isAdmin
       ? prisma.role.findMany({ where: { companyId: company.id }, include: { permissions: true }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
+    user.isAdmin
+      ? prisma.metaConnection.findUnique({ where: { companyId: company.id } })
+      : Promise.resolve(null),
   ]);
+  const metaAdAccounts = metaConnection
+    ? await prisma.metaAdAccount.findMany({ where: { connectionId: metaConnection.id }, orderBy: { accountName: "asc" } })
+    : [];
 
   return (
     <div>
@@ -176,6 +203,95 @@ export default async function SettingsPage() {
                 namePlaceholder="اسم الدور الجديد (مثال: مسؤول حملات)"
                 dashed
               />
+            </CardContent>
+          </Card>
+        )}
+
+        {user.isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PlugZap size={16} /> Meta Integration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {sp.metaError && (
+                <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
+                  {META_ERROR_MESSAGES[sp.metaError] ?? "حدث خطأ أثناء ربط Meta."}
+                </p>
+              )}
+              {sp.metaConnected && !sp.metaError && (
+                <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700" role="status">
+                  تم ربط حساب Meta بنجاح.
+                </p>
+              )}
+
+              {metaConnection ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+                    <CheckCircle2 size={16} /> حساب Meta متصل
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 rounded-lg border border-border p-4 text-sm md:grid-cols-2">
+                    <div>
+                      <p className="text-xs text-muted">حساب Meta</p>
+                      <p className="font-medium text-foreground">{metaConnection.metaUserName ?? metaConnection.metaUserId ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">تاريخ الربط</p>
+                      <p className="font-medium text-foreground">{formatDate(metaConnection.connectedAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">الصلاحيات الممنوحة</p>
+                      <p className="font-medium text-foreground" dir="ltr">
+                        {metaConnection.scopes ?? "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">تاريخ انتهاء رمز الوصول</p>
+                      <p className="font-medium text-foreground">
+                        {metaConnection.tokenExpiresAt ? formatDate(metaConnection.tokenExpiresAt) : "غير متوفر"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">آخر مزامنة (يدوية أو تلقائية)</p>
+                      <p className="font-medium text-foreground">
+                        {metaConnection.lastSyncAt ? formatDate(metaConnection.lastSyncAt) : "لم تتم بعد"}
+                      </p>
+                    </div>
+                  </div>
+                  {metaConnection.lastError && (
+                    <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
+                      خطأ بآخر مزامنة: {metaConnection.lastError}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Plain <a>, not next/link — this must be a full browser navigation so
+                        Meta's OAuth redirect (an external, cross-origin hop) works correctly. */}
+                    <a href="/api/meta/connect" className={cn(buttonBase, buttonVariants.outline, buttonSizes.sm)}>
+                      إعادة الربط
+                    </a>
+                    <MetaDisconnectButton action={disconnectMeta} />
+                  </div>
+
+                  <MetaAdAccounts
+                    accounts={metaAdAccounts}
+                    brands={company.brands}
+                    fetchAction={fetchMetaAdAccounts}
+                    assignAction={assignMetaAdAccountBrand}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-muted">
+                    <ShieldAlert size={16} /> حساب Meta غير متصل
+                  </div>
+                  <div>
+                    <a href="/api/meta/connect" className={cn(buttonBase, buttonVariants.primary, buttonSizes.sm)}>
+                      ربط Meta
+                    </a>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

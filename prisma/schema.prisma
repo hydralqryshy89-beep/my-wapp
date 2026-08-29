@@ -26,6 +26,8 @@ model Company {
   plans  Plan[]
   users  User[]
   roles  Role[]
+
+  metaConnection MetaConnection?
 }
 
 model Brand {
@@ -39,6 +41,8 @@ model Brand {
   company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   plans     Plan[]
   campaigns Campaign[]
+
+  metaAdAccount MetaAdAccount?
 }
 
 model Plan {
@@ -223,4 +227,153 @@ model RolePermission {
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, resource])
+}
+
+// Meta (Facebook) Marketing API connection — Phase 1 of the Meta integration:
+// OAuth connect/disconnect only, no campaign/ad/insight data yet (see src/app/api/meta
+// and src/app/actions/meta.ts). One connection per company (companyId is unique), so
+// connecting again simply replaces the existing row rather than creating a second one.
+// accessTokenEncrypted is AES-256-GCM ciphertext (see src/lib/meta/encryption.ts) —
+// never a plaintext token — and is never returned to the client.
+model MetaConnection {
+  id                   String    @id @default(cuid())
+  companyId            String    @unique
+  accessTokenEncrypted String
+  tokenExpiresAt       DateTime?
+  scopes               String?
+  metaUserId           String?
+  metaUserName         String?
+  connectedAt          DateTime  @default(now())
+  lastSyncAt           DateTime?
+  lastError            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  adAccounts MetaAdAccount[]
+}
+
+// One Meta connection can see several ad accounts (e.g. one per Brand — BYD,
+// MG, ROX each have their own). Phase 2 only lists and links these accounts
+// to a local Brand — no campaigns/insights are pulled through them yet.
+// brandId is optional and unique: an account starts unassigned after a
+// fetch, and at most one ad account maps to a given Brand at a time.
+model MetaAdAccount {
+  id            String   @id @default(cuid())
+  connectionId  String
+  brandId       String?  @unique
+  metaAccountId String
+  accountName   String
+  currency      String?
+  status        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  connection MetaConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  brand      Brand?          @relation(fields: [brandId], references: [id])
+  campaigns  MetaCampaign[]
+
+  @@unique([connectionId, metaAccountId])
+}
+
+// Phase 3: a read-only mirror of each ad account's campaigns from Meta —
+// listed and shown in a separate "حملات Meta" tab, never merged into the
+// local Campaign model and never editable here (no create/update/delete
+// against Meta). daily_budget/lifetime_budget come back from the Graph API
+// in the ad account's currency's minor unit (Meta applies a fixed x100
+// scale for every currency), so they're divided by 100 before storing.
+model MetaCampaign {
+  id             String    @id @default(cuid())
+  adAccountId    String
+  metaCampaignId String
+  name           String
+  status         String?
+  objective      String?
+  dailyBudget    Float?
+  lifetimeBudget Float?
+  startTime      DateTime?
+  stopTime       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  adAccount MetaAdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  adSets    MetaAdSet[]
+  insights  MetaInsight[]
+
+  @@unique([adAccountId, metaCampaignId])
+}
+
+// Phase 4: read-only mirror of a campaign's ad sets. targetingSummary is a
+// short human-readable line built from a handful of common targeting fields
+// (age range, genders, countries) — not the full raw Meta targeting JSON,
+// which is large and mostly not useful to show as-is in this UI.
+model MetaAdSet {
+  id               String    @id @default(cuid())
+  campaignId       String
+  metaAdSetId      String
+  name             String
+  status           String?
+  dailyBudget      Float?
+  lifetimeBudget   Float?
+  startTime        DateTime?
+  stopTime         DateTime?
+  targetingSummary String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  campaign MetaCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  ads      MetaAd[]
+
+  @@unique([campaignId, metaAdSetId])
+}
+
+// Phase 4: read-only mirror of an ad set's ads, with whatever creative info
+// the Graph API returns for it (name/thumbnail — no full creative spec).
+model MetaAd {
+  id                    String   @id @default(cuid())
+  adSetId               String
+  metaAdId              String
+  name                  String
+  status                String?
+  creativeName          String?
+  creativeThumbnailUrl  String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  adSet MetaAdSet @relation(fields: [adSetId], references: [id], onDelete: Cascade)
+
+  @@unique([adSetId, metaAdId])
+}
+
+// Phase 5: daily performance numbers per campaign — kept in its own table,
+// completely separate from the existing (manually-entered) Metric model, so
+// nothing here ever touches a user's own hand-entered numbers or the
+// existing Analytics calculations. One row per (campaign, day).
+// CTR/CPC/CPM/CPL/frequency are derived at display time from these raw
+// numbers (see src/lib/calculations.ts) rather than stored — same
+// "real, derived calculations, never hard-coded" approach the rest of the
+// app already follows, and it keeps this table from disagreeing with
+// numbers Meta itself might round differently.
+// leads/conversions are extracted from Meta's `actions` breakdown by
+// action_type (best-effort — Meta's action taxonomy varies by ad account
+// setup, see the sync code for exactly which types are matched).
+model MetaInsight {
+  id          String   @id @default(cuid())
+  campaignId  String
+  date        DateTime
+  spend       Float    @default(0)
+  impressions Int      @default(0)
+  reach       Int      @default(0)
+  clicks      Int      @default(0)
+  linkClicks  Int      @default(0)
+  leads       Int      @default(0)
+  conversions Int      @default(0)
+  videoViews  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaign MetaCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
 }
