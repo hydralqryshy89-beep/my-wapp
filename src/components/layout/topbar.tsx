@@ -1,10 +1,11 @@
 import { LogOut } from "lucide-react";
-import { getCompany } from "@/lib/data/company";
+import { getSettings } from "@/lib/data/settings";
 import { logout } from "@/app/actions/auth";
-import type { CurrentUser } from "@/lib/permissions";
+import { USER_ROLE_LABELS } from "@/lib/constants";
+import type { CurrentUser } from "@/lib/access";
 
 export async function Topbar({ user }: { user: CurrentUser }) {
-  const company = await getCompany();
+  const settings = await getSettings();
   const today = new Intl.DateTimeFormat("ar-u-nu-latn", {
     weekday: "long",
     year: "numeric",
@@ -15,13 +16,13 @@ export async function Topbar({ user }: { user: CurrentUser }) {
   return (
     <header className="hidden h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-6 md:flex">
       <div>
-        <div className="text-sm font-semibold text-foreground">{company.name}</div>
+        <div className="text-sm font-semibold text-foreground">{settings.academyName}</div>
         <div className="text-xs text-muted">{today}</div>
       </div>
       <div className="flex items-center gap-3">
         <div className="text-left leading-tight">
           <div className="text-sm font-semibold text-foreground">{user.name}</div>
-          <div className="text-xs text-muted">{user.accessRoleName ?? user.jobTitle ?? ""}</div>
+          <div className="text-xs text-muted">{USER_ROLE_LABELS[user.role]}</div>
         </div>
         {user.avatar ? (
           // eslint-disable-next-line @next/next/no-img-element

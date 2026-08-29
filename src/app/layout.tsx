@@ -11,8 +11,8 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: "Marketing Plan",
-  description: "نظام إدارة الخطة التسويقية",
+  title: "نظام إدارة الأكاديمية",
+  description: "نظام إدارة أكاديمية تدريب حضورية",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

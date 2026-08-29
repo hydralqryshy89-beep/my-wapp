@@ -3,14 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, Megaphone } from "lucide-react";
-import { NAV_ITEMS } from "./nav-items";
+import { Menu, X, GraduationCap } from "lucide-react";
+import { visibleNavItems } from "./nav-items";
 import { cn } from "@/lib/utils";
-import { can, type CurrentUser } from "@/lib/access";
-
-function visibleNavItems(user: CurrentUser) {
-  return NAV_ITEMS.filter((item) => !item.resource || can(user, item.resource, "VIEW"));
-}
+import type { CurrentUser } from "@/lib/access";
 
 function NavLinks({ user, onNavigate }: { user: CurrentUser; onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -51,8 +47,8 @@ export function Sidebar({ user }: { user: CurrentUser }) {
       {/* Mobile top bar toggle */}
       <div className="fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-white/10 bg-[var(--sidebar-bg)] px-4 py-3 md:hidden">
         <div className="flex items-center gap-2 text-white">
-          <Megaphone size={20} />
-          <span className="font-bold">Marketing Plan</span>
+          <GraduationCap size={20} />
+          <span className="font-bold">الأكاديمية</span>
         </div>
         <button
           onClick={() => setOpen(true)}
@@ -70,8 +66,8 @@ export function Sidebar({ user }: { user: CurrentUser }) {
           <aside className="absolute inset-y-0 right-0 flex w-72 flex-col bg-[var(--sidebar-bg)]">
             <div className="flex items-center justify-between px-4 py-4">
               <div className="flex items-center gap-2 text-white">
-                <Megaphone size={20} />
-                <span className="font-bold">Marketing Plan</span>
+                <GraduationCap size={20} />
+                <span className="font-bold">الأكاديمية</span>
               </div>
               <button
                 onClick={() => setOpen(false)}
@@ -90,16 +86,16 @@ export function Sidebar({ user }: { user: CurrentUser }) {
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-[var(--sidebar-bg)] md:flex">
         <div className="flex items-center gap-2 px-5 py-6 text-white">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--primary)]">
-            <Megaphone size={18} />
+            <GraduationCap size={18} />
           </div>
           <div className="leading-tight">
-            <div className="font-bold">Marketing Plan</div>
-            <div className="text-xs text-[var(--sidebar-fg)]">إدارة الخطة التسويقية</div>
+            <div className="font-bold">الأكاديمية</div>
+            <div className="text-xs text-[var(--sidebar-fg)]">إدارة الأكاديمية</div>
           </div>
         </div>
         <NavLinks user={user} />
         <div className="border-t border-white/10 px-5 py-4 text-xs text-[var(--sidebar-fg)]">
-          Marketing Plan © {new Date().getFullYear()}
+          الأكاديمية © {new Date().getFullYear()}
         </div>
       </aside>
     </>

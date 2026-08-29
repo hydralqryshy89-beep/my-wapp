@@ -1,129 +1,77 @@
-import {
-  Wallet,
-  TrendingDown,
-  Rocket,
-  FileText,
-  UserPlus,
-  ShoppingCart,
-  DollarSign,
-  Percent,
-  Calendar,
-  ListChecks,
-  AlertTriangle,
-} from "lucide-react";
+import Link from "next/link";
+import { BookOpen, Users, ClipboardList, Wallet, TrendingDown, Calendar, AlertTriangle, ClipboardCheck } from "lucide-react";
 import { getDashboardData } from "@/lib/data/dashboard";
+import { getSettings } from "@/lib/data/settings";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ButtonLink } from "@/components/ui/button";
-import { CampaignPerformanceChart } from "@/components/charts/campaign-performance-chart";
-import { formatCurrency, formatNumber, formatPercent, formatDate } from "@/lib/format";
-import { getCompany } from "@/lib/data/company";
-import { requireUser, can } from "@/lib/permissions";
-import { AccessDenied } from "@/components/ui/access-denied";
+import { formatCurrency, formatDate } from "@/lib/format";
+import { COURSE_STATUS_LABELS } from "@/lib/constants";
+import { requireUser } from "@/lib/permissions";
 
 export default async function DashboardPage() {
-  const user = await requireUser();
-  if (!can(user, "dashboard", "VIEW")) return <AccessDenied label="لوحة التحكم" />;
-  const [data, company] = await Promise.all([getDashboardData(), getCompany()]);
-
-  if (!data) {
-    return (
-      <EmptyState
-        icon={Rocket}
-        title="لا توجد خطة تسويقية بعد"
-        description="ابدأ بإنشاء أول خطة تسويقية لعرض لوحة التحكم."
-        action={<ButtonLink href="/plans/new">+ إنشاء خطة تسويقية</ButtonLink>}
-      />
-    );
-  }
-
-  const currency = company.currency;
+  await requireUser();
+  const [data, settings] = await Promise.all([getDashboardData(), getSettings()]);
+  const currency = settings.currency;
 
   return (
     <div>
-      <PageHeader
-        title="لوحة التحكم"
-        description={`نظرة عامة على «${data.plan.name}»`}
-        action={
-          <ButtonLink href={`/plans/${data.plan.id}`} variant="outline">
-            عرض الخطة
-          </ButtonLink>
-        }
-      />
+      <PageHeader title="لوحة التحكم" description={`نظرة عامة على ${settings.academyName}`} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="الميزانية" value={formatCurrency(data.budget, currency)} icon={Wallet} tone="navy" />
-        <StatCard label="المصروف" value={formatCurrency(data.totalSpend, currency)} icon={TrendingDown} tone="burgundy" />
-        <StatCard label="الحملات النشطة" value={formatNumber(data.activeCampaigns)} icon={Rocket} tone="indigo" />
-        <StatCard label="عدد المحتويات" value={formatNumber(data.contentCount)} icon={FileText} tone="teal" />
-        <StatCard label="Leads" value={formatNumber(data.leads)} icon={UserPlus} tone="slate" />
-        <StatCard label="Sales" value={formatNumber(data.sales)} icon={ShoppingCart} tone="plum" />
-        <StatCard label="Revenue" value={formatCurrency(data.revenue, currency)} icon={DollarSign} tone="emerald" />
-        <StatCard label="ROI" value={formatPercent(data.roi)} icon={Percent} tone="gold" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <StatCard label="الدورات القادمة" value={String(data.upcomingCoursesCount)} icon={BookOpen} tone="navy" />
+        <StatCard label="عدد الطلاب" value={String(data.studentsCount)} icon={Users} tone="indigo" />
+        <StatCard label="عدد التسجيلات" value={String(data.registrationsCount)} icon={ClipboardList} tone="teal" />
+        <StatCard label="إجمالي المدفوع" value={formatCurrency(data.totalPaid, currency)} icon={Wallet} tone="emerald" />
+        <StatCard label="إجمالي المتبقي" value={formatCurrency(data.totalRemaining, currency)} icon={TrendingDown} tone="burgundy" />
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      {data.alerts.length > 0 && (
+        <Card className="mt-6">
           <CardHeader>
-            <CardTitle>أداء الحملات</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-warning" /> تنبيهات
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <CampaignPerformanceChart data={data.campaignPerformance} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>الميزانية</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div>
-              <div className="mb-2 flex items-baseline justify-between text-sm">
-                <span className="font-bold text-foreground">
-                  {formatCurrency(data.totalSpend, currency)}
-                </span>
-                <span className="text-muted"> / {formatCurrency(data.budget, currency)}</span>
+          <CardContent className="flex flex-col gap-2">
+            {data.alerts.map((a, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <AlertTriangle size={14} className="shrink-0" />
+                {a.message}
               </div>
-              <ProgressBar value={data.budgetUtilization} />
-              <p className="mt-2 text-xs text-muted">
-                نسبة الصرف {formatPercent(data.budgetUtilization)}
-              </p>
-            </div>
-            <ButtonLink href="/budget" variant="outline" size="sm" className="w-full">
-              تفاصيل الميزانية
-            </ButtonLink>
+            ))}
           </CardContent>
         </Card>
-      </div>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Calendar size={16} /> المحتوى القادم
+              <Calendar size={16} /> الدورات القادمة
             </CardTitle>
-            <ButtonLink href="/content" variant="ghost" size="sm">
+            <Link href="/courses" className="text-xs font-medium text-primary hover:underline">
               عرض الكل
-            </ButtonLink>
+            </Link>
           </CardHeader>
           <CardContent className="p-0">
-            {data.upcomingContent.length === 0 ? (
-              <EmptyState icon={Calendar} title="لا يوجد محتوى مجدول" />
+            {data.upcomingCourses.length === 0 ? (
+              <EmptyState icon={Calendar} title="لا توجد دورات قادمة" />
             ) : (
               <ul className="divide-y divide-border">
-                {data.upcomingContent.map((c) => (
+                {data.upcomingCourses.map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-3 px-5 py-3">
                     <div>
-                      <p className="text-sm font-medium text-foreground">{c.title}</p>
+                      <Link href={`/courses/${c.id}`} className="text-sm font-medium text-primary hover:underline">
+                        {c.name}
+                      </Link>
                       <p className="text-xs text-muted">
-                        {formatDate(c.date)} · {c.platform} · {c.type}
+                        {formatDate(c.startDate)} · {c.instructorName ?? "بدون مدرب"} · {c.registeredCount} مسجل · متبقي {c.seatsLeft}
                       </p>
                     </div>
-                    <Badge>{c.status}</Badge>
+                    <Badge>{COURSE_STATUS_LABELS[c.status as keyof typeof COURSE_STATUS_LABELS] ?? c.status}</Badge>
                   </li>
                 ))}
               </ul>
@@ -134,37 +82,33 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ListChecks size={16} /> المهام
-              {data.overdueCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-danger">
-                  <AlertTriangle size={12} /> {data.overdueCount} متأخرة
-                </span>
-              )}
+              <ClipboardCheck size={16} /> آخر التسجيلات
             </CardTitle>
-            <ButtonLink href="/tasks" variant="ghost" size="sm">
+            <Link href="/registrations" className="text-xs font-medium text-primary hover:underline">
               عرض الكل
-            </ButtonLink>
+            </Link>
           </CardHeader>
           <CardContent className="p-0">
-            {data.tasks.length === 0 ? (
-              <EmptyState icon={ListChecks} title="لا توجد مهام حالية" />
+            {data.recentRegistrations.length === 0 ? (
+              <EmptyState icon={ClipboardCheck} title="لا توجد تسجيلات بعد" />
             ) : (
               <ul className="divide-y divide-border">
-                {data.tasks.map((t) => {
-                  const overdue = t.dueDate && t.dueDate < new Date() && t.status !== "مكتملة";
-                  return (
-                    <li key={t.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{t.title}</p>
-                        <p className={`text-xs ${overdue ? "text-danger" : "text-muted"}`}>
-                          {t.dueDate ? formatDate(t.dueDate) : "بدون موعد"}
-                          {t.assignedTo ? ` · ${t.assignedTo.name}` : ""}
-                        </p>
-                      </div>
-                      <Badge variant="priority">{t.priority}</Badge>
-                    </li>
-                  );
-                })}
+                {data.recentRegistrations.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{r.studentName}</p>
+                      <p className="text-xs text-muted">
+                        {r.courseName} · {formatDate(r.createdAt)}
+                      </p>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-foreground">{formatCurrency(r.price, currency)}</p>
+                      <p className={`text-xs ${r.remaining > 0 ? "text-danger" : "text-success"}`}>
+                        {r.remaining > 0 ? `متبقي ${formatCurrency(r.remaining, currency)}` : "مدفوع بالكامل"}
+                      </p>
+                    </div>
+                  </li>
+                ))}
               </ul>
             )}
           </CardContent>

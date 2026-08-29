@@ -2,31 +2,38 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { assertPermission } from "@/lib/permissions";
+import { assertPermission, requireUser } from "@/lib/permissions";
 import { hashPassword } from "@/lib/auth";
 import { readOptionalLogoUpload } from "@/lib/upload";
+import { USER_ROLES, type UserRole } from "@/lib/constants";
 
 function str(formData: FormData, key: string): string {
   return (formData.get(key) as string | null)?.trim() ?? "";
 }
 
-// See roles.ts for why these return an error message instead of throwing it.
-export async function updateCompany(
+export async function updateSettings(
   id: string,
   _prevState: string | undefined,
   formData: FormData
 ): Promise<string | undefined> {
-  await assertPermission("settings", "EDIT");
+  await assertPermission("settings.manage");
+  const academyName = str(formData, "academyName");
+  if (!academyName) return "يرجى إدخال اسم الأكاديمية";
+
   const { dataUrl, error } = await readOptionalLogoUpload(formData, "logoFile");
   if (error) return error;
 
-  await prisma.company.update({
+  await prisma.settings.update({
     where: { id },
     data: {
-      name: str(formData, "name"),
+      academyName,
       ...(dataUrl ? { logo: dataUrl } : {}),
+      phone: str(formData, "phone") || null,
+      email: str(formData, "email") || null,
+      address: str(formData, "address") || null,
+      instagram: str(formData, "instagram") || null,
+      facebook: str(formData, "facebook") || null,
       currency: str(formData, "currency") || "IQD",
-      language: str(formData, "language") || "ar",
     },
   });
   revalidatePath("/settings");
@@ -34,74 +41,25 @@ export async function updateCompany(
   return undefined;
 }
 
-export async function createBrand(
-  companyId: string,
-  _prevState: string | undefined,
-  formData: FormData
-): Promise<string | undefined> {
-  await assertPermission("settings", "EDIT");
-  const { dataUrl, error } = await readOptionalLogoUpload(formData, "logoFile");
-  if (error) return error;
-
-  await prisma.brand.create({
-    data: {
-      companyId,
-      name: str(formData, "name"),
-      logo: dataUrl ?? null,
-    },
-  });
-  revalidatePath("/settings");
-  return undefined;
-}
-
-export async function updateBrand(
-  id: string,
-  _prevState: string | undefined,
-  formData: FormData
-): Promise<string | undefined> {
-  await assertPermission("settings", "EDIT");
-  const { dataUrl, error } = await readOptionalLogoUpload(formData, "logoFile");
-  if (error) return error;
-
-  await prisma.brand.update({
-    where: { id },
-    data: {
-      name: str(formData, "name"),
-      ...(dataUrl ? { logo: dataUrl } : {}),
-    },
-  });
-  revalidatePath("/settings");
-  return undefined;
-}
-
-export async function deleteBrand(id: string, _formData: FormData) {
-  void _formData;
-  await assertPermission("settings", "EDIT");
-  await prisma.brand.delete({ where: { id } });
-  revalidatePath("/settings");
-}
-
-// User creation/editing manages logins and role assignment — admin-only,
-// same reasoning as roles.ts (this is the privilege-escalation surface).
 async function requireAdmin() {
-  const user = await assertPermission("settings", "VIEW");
-  if (!user.isAdmin) throw new Error("إدارة أعضاء الفريق متاحة فقط لمدير النظام");
+  const user = await requireUser();
+  if (!user.isAdmin) throw new Error("إدارة المستخدمين متاحة فقط لمدير النظام");
   return user;
 }
 
-// See roles.ts for why these return an error message instead of throwing it.
-export async function createUser(
-  companyId: string,
-  _prevState: string | undefined,
-  formData: FormData
-): Promise<string | undefined> {
+export async function createUser(_prevState: string | undefined, formData: FormData): Promise<string | undefined> {
   await requireAdmin();
+  const name = str(formData, "name");
+  const email = str(formData, "email").toLowerCase();
+  const roleRaw = str(formData, "role");
+  const role: UserRole = (USER_ROLES as readonly string[]).includes(roleRaw) ? (roleRaw as UserRole) : "STAFF";
   const password = (formData.get("password") as string | null) ?? "";
+
+  if (!name) return "يرجى إدخال اسم العضو";
   if (!password || password.length < 8) {
     return "كلمة المرور مطلوبة (8 أحرف على الأقل) عند إضافة عضو جديد";
   }
-  const accessRoleId = str(formData, "accessRoleId");
-  const email = str(formData, "email").toLowerCase();
+
   const { dataUrl, error } = await readOptionalLogoUpload(formData, "avatarFile");
   if (error) return error;
 
@@ -112,12 +70,10 @@ export async function createUser(
 
   await prisma.user.create({
     data: {
-      companyId,
-      name: str(formData, "name"),
+      name,
       email,
-      role: str(formData, "role") || null,
+      role,
       passwordHash: await hashPassword(password),
-      accessRoleId: accessRoleId || null,
       ...(dataUrl ? { avatar: dataUrl } : {}),
     },
   });
@@ -131,9 +87,14 @@ export async function updateUser(
   formData: FormData
 ): Promise<string | undefined> {
   await requireAdmin();
-  const password = (formData.get("password") as string | null) ?? "";
-  const accessRoleId = str(formData, "accessRoleId");
+  const name = str(formData, "name");
   const email = str(formData, "email").toLowerCase();
+  const roleRaw = str(formData, "role");
+  const role: UserRole = (USER_ROLES as readonly string[]).includes(roleRaw) ? (roleRaw as UserRole) : "STAFF";
+  const password = (formData.get("password") as string | null) ?? "";
+
+  if (!name) return "يرجى إدخال اسم العضو";
+
   const { dataUrl, error } = await readOptionalLogoUpload(formData, "avatarFile");
   if (error) return error;
 
@@ -142,13 +103,22 @@ export async function updateUser(
     return "هذا البريد الإلكتروني مستخدم من قبل عضو آخر بالفعل";
   }
 
+  if (role !== "ADMIN") {
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (target?.role === "ADMIN") {
+      const otherAdmins = await prisma.user.count({ where: { role: "ADMIN", id: { not: id } } });
+      if (otherAdmins === 0) {
+        return "لا يمكن إزالة صلاحية «مدير النظام» عن هذا الحساب لأنه آخر حساب إداري — سيفقد الجميع القدرة على إدارة المستخدمين والإعدادات.";
+      }
+    }
+  }
+
   await prisma.user.update({
     where: { id },
     data: {
-      name: str(formData, "name"),
+      name,
       email,
-      role: str(formData, "role") || null,
-      accessRoleId: accessRoleId || null,
+      role,
       ...(password ? { passwordHash: await hashPassword(password) } : {}),
       ...(dataUrl ? { avatar: dataUrl } : {}),
     },
@@ -162,6 +132,13 @@ export async function deleteUser(id: string, _formData: FormData) {
   const user = await requireAdmin();
   if (user.id === id) {
     throw new Error("لا يمكنك حذف حسابك الخاص أثناء تسجيل الدخول به");
+  }
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (target?.role === "ADMIN") {
+    const otherAdmins = await prisma.user.count({ where: { role: "ADMIN", id: { not: id } } });
+    if (otherAdmins === 0) {
+      throw new Error("لا يمكن حذف هذا الحساب لأنه آخر حساب إداري في النظام.");
+    }
   }
   await prisma.user.delete({ where: { id } });
   revalidatePath("/settings");

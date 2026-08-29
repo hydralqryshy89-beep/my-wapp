@@ -1,104 +1,73 @@
 // Central place for all "enum-like" values used across the app.
-// SQLite has no native enum type, so these are plain strings validated here.
+// Postgres values are plain strings (English codes) with Arabic labels
+// shown in the UI — validated here rather than via a native enum type.
 
-export const PLAN_STATUSES = ["مخطط", "نشطة", "متوقفة", "مكتملة"] as const;
-export type PlanStatus = (typeof PLAN_STATUSES)[number];
+export const COURSE_STATUSES = ["DRAFT", "OPEN", "FULL", "COMPLETED", "CANCELLED"] as const;
+export type CourseStatus = (typeof COURSE_STATUSES)[number];
 
-export const CAMPAIGN_STATUSES = ["مخطط", "نشطة", "متوقفة", "مكتملة"] as const;
-export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
+export const COURSE_STATUS_LABELS: Record<CourseStatus, string> = {
+  DRAFT: "مسودة",
+  OPEN: "التسجيل مفتوح",
+  FULL: "مكتملة",
+  COMPLETED: "منتهية",
+  CANCELLED: "ملغاة",
+};
 
-export const CONTENT_TYPES = ["Reel", "Story", "Post", "Carousel", "Video"] as const;
-export type ContentType = (typeof CONTENT_TYPES)[number];
+export const REGISTRATION_STATUSES = ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"] as const;
+export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
 
-export const CONTENT_STATUSES = ["فكرة", "قيد التنفيذ", "مراجعة", "جاهز", "منشور"] as const;
-export type ContentStatus = (typeof CONTENT_STATUSES)[number];
+export const REGISTRATION_STATUS_LABELS: Record<RegistrationStatus, string> = {
+  PENDING: "بانتظار التأكيد",
+  CONFIRMED: "مؤكد",
+  CANCELLED: "ملغي",
+  COMPLETED: "مكتمل",
+};
 
-export const PLATFORMS = ["Facebook", "Instagram", "TikTok", "WhatsApp"] as const;
-export type Platform = (typeof PLATFORMS)[number];
+export const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER", "OTHER"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
-export const EXPENSE_CATEGORIES = [
-  "Meta Ads",
-  "TikTok Ads",
-  "Influencers",
-  "Production",
-  "Design",
-  "Photography",
-  "Other",
-] as const;
-export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: "نقداً",
+  BANK_TRANSFER: "تحويل بنكي",
+  OTHER: "أخرى",
+};
 
-export const KPI_TYPES = [
-  "Leads",
-  "Reach",
-  "Engagement",
-  "Sales",
-  "Revenue",
-  "Conversion Rate",
-  "CPL",
-  "ROI",
-] as const;
-export type KpiType = (typeof KPI_TYPES)[number];
+export const ATTENDANCE_STATUSES = ["PRESENT", "ABSENT"] as const;
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 
-export const TASK_PRIORITIES = ["منخفضة", "متوسطة", "عالية"] as const;
-export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
+  PRESENT: "حاضر",
+  ABSENT: "غائب",
+};
 
-export const TASK_STATUSES = ["جديدة", "قيد التنفيذ", "مكتملة"] as const;
-export type TaskStatus = (typeof TASK_STATUSES)[number];
+// Suggestions only (shown via a <datalist>) — not enforced, per spec §7.
+export const PROFESSION_SUGGESTIONS = ["طبيب أسنان", "طبيب", "صيدلاني", "ممرض/ممرضة", "طالب", "أخرى"] as const;
 
 export const CURRENCIES = ["IQD", "USD", "SAR", "AED"] as const;
 
+export const USER_ROLES = ["ADMIN", "STAFF"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  ADMIN: "مدير النظام",
+  STAFF: "موظف",
+};
+
 export const STATUS_BADGE_STYLES: Record<string, string> = {
-  "مخطط": "bg-slate-100 text-slate-700 ring-slate-200",
-  "نشطة": "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  "متوقفة": "bg-amber-50 text-amber-700 ring-amber-200",
-  "مكتملة": "bg-blue-50 text-blue-700 ring-blue-200",
-  "فكرة": "bg-slate-100 text-slate-700 ring-slate-200",
-  "قيد التنفيذ": "bg-amber-50 text-amber-700 ring-amber-200",
-  "مراجعة": "bg-purple-50 text-purple-700 ring-purple-200",
-  "جاهز": "bg-blue-50 text-blue-700 ring-blue-200",
-  "منشور": "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  "جديدة": "bg-slate-100 text-slate-700 ring-slate-200",
+  // Course statuses
+  "مسودة": "bg-slate-100 text-slate-700 ring-slate-200",
+  "التسجيل مفتوح": "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  "مكتملة": "bg-amber-50 text-amber-700 ring-amber-200",
+  "منتهية": "bg-blue-50 text-blue-700 ring-blue-200",
+  "ملغاة": "bg-rose-50 text-rose-700 ring-rose-200",
+  // Registration statuses
+  "بانتظار التأكيد": "bg-amber-50 text-amber-700 ring-amber-200",
+  "مؤكد": "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  "ملغي": "bg-rose-50 text-rose-700 ring-rose-200",
+  "مكتمل": "bg-blue-50 text-blue-700 ring-blue-200",
 };
 
-export const PRIORITY_BADGE_STYLES: Record<string, string> = {
-  "منخفضة": "bg-slate-100 text-slate-700 ring-slate-200",
-  "متوسطة": "bg-amber-50 text-amber-700 ring-amber-200",
-  "عالية": "bg-rose-50 text-rose-700 ring-rose-200",
-};
-
-// Access control: every app section a role's access can be scoped to,
-// including the dashboard itself — a role with no explicit grant defaults
-// to NONE, same as every other section (see src/lib/access.ts's can()).
-export const PERMISSION_RESOURCES = [
-  "dashboard",
-  "plans",
-  "objectives",
-  "campaigns",
-  "content",
-  "budget",
-  "analytics",
-  "tasks",
-  "settings",
-] as const;
-export type PermissionResource = (typeof PERMISSION_RESOURCES)[number];
-
-export const PERMISSION_RESOURCE_LABELS: Record<PermissionResource, string> = {
-  dashboard: "لوحة التحكم",
-  plans: "الخطة التسويقية",
-  objectives: "الأهداف و KPI",
-  campaigns: "الحملات",
-  content: "تقويم المحتوى",
-  budget: "الميزانية",
-  analytics: "النتائج والتحليلات",
-  tasks: "الفريق والمهام",
-  settings: "الإعدادات",
-};
-
-export const PERMISSION_LEVELS = ["NONE", "VIEW", "EDIT"] as const;
-export type PermissionLevel = (typeof PERMISSION_LEVELS)[number];
-
-export const PERMISSION_LEVEL_LABELS: Record<PermissionLevel, string> = {
-  NONE: "بدون وصول",
-  VIEW: "عرض فقط",
-  EDIT: "عرض وتعديل",
+export const ATTENDANCE_BADGE_STYLES: Record<string, string> = {
+  "حاضر": "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  "غائب": "bg-rose-50 text-rose-700 ring-rose-200",
 };

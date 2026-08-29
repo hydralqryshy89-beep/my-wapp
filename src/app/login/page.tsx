@@ -4,12 +4,12 @@ import { firstAccessiblePath } from "@/components/layout/nav-items";
 import { LoginForm } from "./login-form";
 
 export const metadata = {
-  title: "تسجيل الدخول — Marketing Plan",
+  title: "تسجيل الدخول — نظام إدارة الأكاديمية",
 };
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
-  if (user) redirect(firstAccessiblePath(user));
+  if (user) redirect(firstAccessiblePath());
 
   return <LoginForm />;
 }

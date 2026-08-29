@@ -4,5 +4,5 @@ import { firstAccessiblePath } from "@/components/layout/nav-items";
 
 export default async function Home() {
   const user = await getCurrentUser();
-  redirect(user ? firstAccessiblePath(user) : "/login");
+  redirect(user ? firstAccessiblePath() : "/login");
 }

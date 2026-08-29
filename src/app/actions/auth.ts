@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import { verifyCredentials } from "@/lib/auth";
 import { createSession, destroySession } from "@/lib/session";
-import { getCurrentUser } from "@/lib/permissions";
 import { firstAccessiblePath } from "@/components/layout/nav-items";
 
 export async function login(_prevState: string | undefined, formData: FormData): Promise<string | undefined> {
@@ -18,13 +17,9 @@ export async function login(_prevState: string | undefined, formData: FormData):
   if (!user) {
     return "البريد الإلكتروني أو كلمة المرور غير صحيحة";
   }
-  if (user === "no-role") {
-    return "هذا الحساب ليس له دور وصلاحيات بعد. تواصل مع مدير النظام لتفعيله من الإعدادات.";
-  }
 
   await createSession(user.id);
-  const currentUser = await getCurrentUser();
-  redirect(currentUser ? firstAccessiblePath(currentUser) : "/dashboard");
+  redirect(firstAccessiblePath());
 }
 
 export async function logout() {

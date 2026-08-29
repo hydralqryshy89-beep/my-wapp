@@ -3,28 +3,25 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { LogoPicker } from "@/components/settings/logo-picker";
+import { USER_ROLES, USER_ROLE_LABELS } from "@/lib/constants";
 
 type UserAction = (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
 
 export function UserForm({
   action,
   submitLabel,
-  roles,
   defaultName = "",
   defaultEmail = "",
-  defaultRole = "",
-  defaultAccessRoleId = "",
+  defaultRole = "STAFF",
   defaultAvatar = null,
   passwordRequired,
   dashed,
 }: {
   action: UserAction;
   submitLabel: string;
-  roles: { id: string; name: string }[];
   defaultName?: string;
   defaultEmail?: string;
   defaultRole?: string;
-  defaultAccessRoleId?: string;
   defaultAvatar?: string | null;
   passwordRequired?: boolean;
   dashed?: boolean;
@@ -54,21 +51,14 @@ export function UserForm({
           dir="ltr"
           className="min-w-40 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
         />
-        <input
+        <select
           name="role"
           defaultValue={defaultRole}
-          placeholder="المسمى الوظيفي"
-          className="min-w-32 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-        />
-        <select
-          name="accessRoleId"
-          defaultValue={defaultAccessRoleId}
           className="min-w-32 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
         >
-          <option value="">بدون صلاحيات (بدون دخول فعّال)</option>
-          {roles.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
+          {USER_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {USER_ROLE_LABELS[r]}
             </option>
           ))}
         </select>

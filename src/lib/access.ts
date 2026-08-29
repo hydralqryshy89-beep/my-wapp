@@ -1,23 +1,46 @@
 // Pure, framework-agnostic permission logic — no Prisma/session imports here,
 // so client components (e.g. the Sidebar) can safely import this without
 // pulling Node-only database code into the browser bundle.
-import type { PermissionLevel, PermissionResource } from "@/lib/constants";
+//
+// Fixed two-role model per spec §17 (no per-resource custom permissions):
+// Admin has full access; Staff can operate day-to-day records (add
+// students, register students, record payments, mark attendance, issue
+// certificates) but cannot delete core data, manage users, or touch settings.
+import type { UserRole } from "@/lib/constants";
 
 export interface CurrentUser {
   id: string;
   name: string;
   email: string;
-  jobTitle: string | null;
+  role: UserRole;
   avatar: string | null;
-  companyId: string | null;
   isAdmin: boolean;
-  accessRoleName: string | null;
-  permissions: Record<PermissionResource, PermissionLevel>;
 }
 
-export function can(user: CurrentUser, resource: PermissionResource, level: "VIEW" | "EDIT"): boolean {
+export type Action =
+  | "courses.manage" // create/edit/delete courses & instructors
+  | "students.create"
+  | "students.edit"
+  | "students.delete"
+  | "registrations.create"
+  | "registrations.edit" // includes cancelling (status change, never a hard delete)
+  | "payments.create" // payments are never edited or deleted once recorded
+  | "attendance.mark"
+  | "certificates.issue"
+  | "settings.manage"
+  | "users.manage";
+
+const STAFF_ALLOWED: ReadonlySet<Action> = new Set<Action>([
+  "students.create",
+  "students.edit",
+  "registrations.create",
+  "registrations.edit",
+  "payments.create",
+  "attendance.mark",
+  "certificates.issue",
+]);
+
+export function can(user: CurrentUser, action: Action): boolean {
   if (user.isAdmin) return true;
-  const userLevel = user.permissions[resource];
-  if (level === "VIEW") return userLevel === "VIEW" || userLevel === "EDIT";
-  return userLevel === "EDIT";
+  return STAFF_ALLOWED.has(action);
 }
