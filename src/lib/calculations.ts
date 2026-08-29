@@ -25,6 +25,24 @@ export function budgetUtilization(spend: number, budget: number): number {
   return safeDiv(spend, budget) * 100;
 }
 
+// Ad-platform ratios (CTR/CPC/CPM/frequency) — used by Meta Analytics, but
+// generic enough to belong here with the rest of the real, derived math.
+export function ctr(clicks: number, impressions: number): number {
+  return safeDiv(clicks, impressions) * 100;
+}
+
+export function cpc(spend: number, clicks: number): number {
+  return safeDiv(spend, clicks);
+}
+
+export function cpm(spend: number, impressions: number): number {
+  return safeDiv(spend, impressions) * 1000;
+}
+
+export function frequency(impressions: number, reach: number): number {
+  return safeDiv(impressions, reach);
+}
+
 export function planDurationDays(startDate: Date, endDate: Date): number {
   return Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000));
 }

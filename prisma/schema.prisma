@@ -299,6 +299,7 @@ model MetaCampaign {
 
   adAccount MetaAdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
   adSets    MetaAdSet[]
+  insights  MetaInsight[]
 
   @@unique([adAccountId, metaCampaignId])
 }
@@ -343,4 +344,36 @@ model MetaAd {
   adSet MetaAdSet @relation(fields: [adSetId], references: [id], onDelete: Cascade)
 
   @@unique([adSetId, metaAdId])
+}
+
+// Phase 5: daily performance numbers per campaign — kept in its own table,
+// completely separate from the existing (manually-entered) Metric model, so
+// nothing here ever touches a user's own hand-entered numbers or the
+// existing Analytics calculations. One row per (campaign, day).
+// CTR/CPC/CPM/CPL/frequency are derived at display time from these raw
+// numbers (see src/lib/calculations.ts) rather than stored — same
+// "real, derived calculations, never hard-coded" approach the rest of the
+// app already follows, and it keeps this table from disagreeing with
+// numbers Meta itself might round differently.
+// leads/conversions are extracted from Meta's `actions` breakdown by
+// action_type (best-effort — Meta's action taxonomy varies by ad account
+// setup, see the sync code for exactly which types are matched).
+model MetaInsight {
+  id          String   @id @default(cuid())
+  campaignId  String
+  date        DateTime
+  spend       Float    @default(0)
+  impressions Int      @default(0)
+  reach       Int      @default(0)
+  clicks      Int      @default(0)
+  linkClicks  Int      @default(0)
+  leads       Int      @default(0)
+  conversions Int      @default(0)
+  videoViews  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaign MetaCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
 }

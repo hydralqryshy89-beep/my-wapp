@@ -399,3 +399,130 @@ export async function syncMetaAdSetsAndAds(
   }
   return undefined;
 }
+
+interface MetaActionRow {
+  action_type: string;
+  value: string;
+}
+
+interface MetaInsightApiRow {
+  spend?: string;
+  impressions?: string;
+  reach?: string;
+  clicks?: string;
+  inline_link_clicks?: string;
+  actions?: MetaActionRow[];
+  video_play_actions?: MetaActionRow[];
+  date_start: string;
+}
+
+function sumActionValues(actions: MetaActionRow[] | undefined, matches: (actionType: string) => boolean): number {
+  if (!actions) return 0;
+  return actions.filter((a) => matches(a.action_type)).reduce((sum, a) => sum + (Number(a.value) || 0), 0);
+}
+
+// Meta's action taxonomy varies by account setup (custom conversions, pixel
+// events, catalog sales, ...) — these two matchers are a best-effort, common-
+// case read: "lead" covers Lead Ads and lead-type pixel/offline events;
+// "offsite_conversion"/"purchase" covers the most common conversion events.
+// This can under- or over-count for accounts with unusual custom events.
+function extractLeads(actions: MetaActionRow[] | undefined): number {
+  return sumActionValues(actions, (t) => t.includes("lead"));
+}
+function extractConversions(actions: MetaActionRow[] | undefined): number {
+  return sumActionValues(actions, (t) => t.includes("offsite_conversion") || t === "purchase");
+}
+
+// Pulls the last 30 days of daily performance numbers for every already-
+// synced campaign, in one click — unlike syncMetaAdSetsAndAds (Phase 4),
+// this fans out cheaply: each campaign is a single Graph API call that
+// returns up to 30 rows via time_increment, not one call per day. One
+// campaign failing doesn't abort the others.
+export async function syncMetaInsights(
+  _prevState: string | undefined,
+  _formData: FormData
+): Promise<string | undefined> {
+  void _formData;
+  const user = await requireAdmin();
+  if (!user.companyId) return "الحساب الحالي غير مرتبط بأي شركة.";
+
+  const connection = await prisma.metaConnection.findUnique({
+    where: { companyId: user.companyId },
+    include: { adAccounts: { include: { campaigns: true } } },
+  });
+  if (!connection) return "لا يوجد اتصال Meta فعّال. اربط الحساب أولاً.";
+
+  const campaigns = connection.adAccounts.flatMap((a) => a.campaigns);
+  if (campaigns.length === 0) {
+    return "لا توجد حملات Meta مجلوبة بعد. زامن الحملات أولاً من تبويب \"حملات Meta\".";
+  }
+  if (connection.tokenExpiresAt && connection.tokenExpiresAt < new Date()) {
+    return "انتهت صلاحية رمز الوصول. أعد الربط من قسم Meta Integration بالإعدادات.";
+  }
+
+  const accessToken = decryptToken(connection.accessTokenEncrypted);
+  const failures: string[] = [];
+  let syncedDays = 0;
+
+  for (const campaign of campaigns) {
+    let rows: MetaInsightApiRow[];
+    try {
+      rows = await metaGraphGetAllPages<MetaInsightApiRow>(`${campaign.metaCampaignId}/insights`, accessToken, {
+        fields: "spend,impressions,reach,clicks,inline_link_clicks,actions,video_play_actions,date_start,date_stop",
+        time_increment: "1",
+        date_preset: "last_30d",
+        limit: "100",
+      });
+    } catch (err) {
+      const message = err instanceof MetaGraphError ? err.message : "فشل غير متوقع";
+      failures.push(`${campaign.name}: ${message}`);
+      continue;
+    }
+
+    await prisma.$transaction(
+      rows.map((r) =>
+        prisma.metaInsight.upsert({
+          where: { campaignId_date: { campaignId: campaign.id, date: new Date(r.date_start) } },
+          create: {
+            campaignId: campaign.id,
+            date: new Date(r.date_start),
+            spend: Number(r.spend) || 0,
+            impressions: Number(r.impressions) || 0,
+            reach: Number(r.reach) || 0,
+            clicks: Number(r.clicks) || 0,
+            linkClicks: Number(r.inline_link_clicks) || 0,
+            leads: extractLeads(r.actions),
+            conversions: extractConversions(r.actions),
+            videoViews: sumActionValues(r.video_play_actions, () => true),
+          },
+          update: {
+            spend: Number(r.spend) || 0,
+            impressions: Number(r.impressions) || 0,
+            reach: Number(r.reach) || 0,
+            clicks: Number(r.clicks) || 0,
+            linkClicks: Number(r.inline_link_clicks) || 0,
+            leads: extractLeads(r.actions),
+            conversions: extractConversions(r.actions),
+            videoViews: sumActionValues(r.video_play_actions, () => true),
+          },
+        })
+      )
+    );
+    syncedDays += rows.length;
+  }
+
+  await prisma.metaConnection.update({
+    where: { id: connection.id },
+    data: { lastSyncAt: new Date(), lastError: failures.length > 0 ? failures.join(" | ") : null },
+  });
+
+  revalidatePath("/analytics");
+
+  if (failures.length > 0 && syncedDays === 0) {
+    return `فشلت مزامنة النتائج: ${failures.join(" | ")}`;
+  }
+  if (failures.length > 0) {
+    return `تمت مزامنة نتائج ${syncedDays} يوم، لكن فشلت بعض الحملات: ${failures.join(" | ")}`;
+  }
+  return undefined;
+}
