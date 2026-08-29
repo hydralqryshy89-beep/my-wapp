@@ -252,7 +252,18 @@ export default async function SettingsPage({
                         {metaConnection.tokenExpiresAt ? formatDate(metaConnection.tokenExpiresAt) : "غير متوفر"}
                       </p>
                     </div>
+                    <div>
+                      <p className="text-xs text-muted">آخر مزامنة (يدوية أو تلقائية)</p>
+                      <p className="font-medium text-foreground">
+                        {metaConnection.lastSyncAt ? formatDate(metaConnection.lastSyncAt) : "لم تتم بعد"}
+                      </p>
+                    </div>
                   </div>
+                  {metaConnection.lastError && (
+                    <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
+                      خطأ بآخر مزامنة: {metaConnection.lastError}
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Plain <a>, not next/link — this must be a full browser navigation so
                         Meta's OAuth redirect (an external, cross-origin hop) works correctly. */}
