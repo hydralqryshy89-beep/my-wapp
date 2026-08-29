@@ -6,7 +6,15 @@ import { Button } from "@/components/ui/button";
 
 type SyncAction = (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
 
-export function MetaCampaignSyncButton({ action }: { action: SyncAction }) {
+export function MetaCampaignSyncButton({
+  action,
+  label = "مزامنة الحملات الآن",
+  pendingLabel = "جاري المزامنة...",
+}: {
+  action: SyncAction;
+  label?: string;
+  pendingLabel?: string;
+}) {
   const [error, formAction, pending] = useActionState(action, undefined);
 
   return (
@@ -14,7 +22,7 @@ export function MetaCampaignSyncButton({ action }: { action: SyncAction }) {
       <form action={formAction}>
         <Button type="submit" variant="outline" size="sm" disabled={pending}>
           <RefreshCw size={14} className={pending ? "animate-spin" : undefined} />
-          {pending ? "جاري المزامنة..." : "مزامنة الحملات الآن"}
+          {pending ? pendingLabel : label}
         </Button>
       </form>
       {error && (

@@ -120,8 +120,10 @@ export default async function CampaignsPage({
                   <Tbody>
                     {metaCampaigns.map((c) => (
                       <Tr key={c.id}>
-                        <Td className="font-medium text-foreground" dir="ltr">
-                          {c.name}
+                        <Td dir="ltr">
+                          <Link href={`/campaigns/meta/${c.id}`} className="font-medium text-primary hover:underline">
+                            {c.name}
+                          </Link>
                         </Td>
                         <Td>{c.adAccount.brand?.name ?? "بدون ربط"}</Td>
                         <Td className="text-xs text-muted" dir="ltr">

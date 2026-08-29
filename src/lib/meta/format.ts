@@ -16,17 +16,29 @@ export function formatMetaAccountStatus(status: string | null): string {
   return ACCOUNT_STATUS_LABELS[status] ?? status;
 }
 
-// Meta campaign status values are already plain words (ACTIVE, PAUSED, ...) — just Arabic-label them.
-const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
+// Meta campaign/ad-set/ad status values are all the same plain-word vocabulary
+// (ACTIVE, PAUSED, ...), with ads adding a few review-related ones on top —
+// one shared map covers all three entity types.
+const ENTITY_STATUS_LABELS: Record<string, string> = {
   ACTIVE: "نشطة",
   PAUSED: "متوقفة مؤقتاً",
   DELETED: "محذوفة",
   ARCHIVED: "مؤرشفة",
   IN_PROCESS: "قيد المعالجة",
   WITH_ISSUES: "بها مشاكل",
+  PENDING_REVIEW: "قيد المراجعة",
+  DISAPPROVED: "مرفوضة",
+  PREAPPROVED: "معتمدة مسبقاً",
+  PENDING_BILLING_INFO: "بانتظار معلومات الفوترة",
+  CAMPAIGN_PAUSED: "متوقفة (الحملة موقوفة)",
+  ADSET_PAUSED: "متوقفة (المجموعة الإعلانية موقوفة)",
 };
 
 export function formatMetaCampaignStatus(status: string | null): string {
   if (!status) return "—";
-  return CAMPAIGN_STATUS_LABELS[status] ?? status;
+  return ENTITY_STATUS_LABELS[status] ?? status;
+}
+
+export function formatMetaEntityStatus(status: string | null): string {
+  return formatMetaCampaignStatus(status);
 }

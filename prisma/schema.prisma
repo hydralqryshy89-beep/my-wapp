@@ -298,6 +298,49 @@ model MetaCampaign {
   updatedAt      DateTime  @updatedAt
 
   adAccount MetaAdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  adSets    MetaAdSet[]
 
   @@unique([adAccountId, metaCampaignId])
+}
+
+// Phase 4: read-only mirror of a campaign's ad sets. targetingSummary is a
+// short human-readable line built from a handful of common targeting fields
+// (age range, genders, countries) — not the full raw Meta targeting JSON,
+// which is large and mostly not useful to show as-is in this UI.
+model MetaAdSet {
+  id               String    @id @default(cuid())
+  campaignId       String
+  metaAdSetId      String
+  name             String
+  status           String?
+  dailyBudget      Float?
+  lifetimeBudget   Float?
+  startTime        DateTime?
+  stopTime         DateTime?
+  targetingSummary String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  campaign MetaCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  ads      MetaAd[]
+
+  @@unique([campaignId, metaAdSetId])
+}
+
+// Phase 4: read-only mirror of an ad set's ads, with whatever creative info
+// the Graph API returns for it (name/thumbnail — no full creative spec).
+model MetaAd {
+  id                    String   @id @default(cuid())
+  adSetId               String
+  metaAdId              String
+  name                  String
+  status                String?
+  creativeName          String?
+  creativeThumbnailUrl  String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  adSet MetaAdSet @relation(fields: [adSetId], references: [id], onDelete: Cascade)
+
+  @@unique([adSetId, metaAdId])
 }

@@ -236,3 +236,166 @@ export async function syncMetaCampaigns(
   }
   return undefined;
 }
+
+interface MetaAdSetApiRow {
+  id: string;
+  name: string;
+  status?: string;
+  daily_budget?: string;
+  lifetime_budget?: string;
+  start_time?: string;
+  end_time?: string;
+  targeting?: {
+    age_min?: number;
+    age_max?: number;
+    genders?: number[];
+    geo_locations?: { countries?: string[] };
+  };
+}
+
+interface MetaAdApiRow {
+  id: string;
+  name: string;
+  status?: string;
+  creative?: { name?: string; thumbnail_url?: string };
+}
+
+// Builds a short, human-readable line from a handful of common targeting
+// fields — not a dump of Meta's full (much larger) targeting spec.
+function buildTargetingSummary(t: MetaAdSetApiRow["targeting"]): string | null {
+  if (!t) return null;
+  const parts: string[] = [];
+  if (t.age_min || t.age_max) parts.push(`العمر ${t.age_min ?? "؟"}-${t.age_max ?? "؟"}`);
+  if (t.genders && t.genders.length > 0) {
+    parts.push(t.genders.map((g) => (g === 1 ? "ذكور" : g === 2 ? "إناث" : "غير محدد")).join("/"));
+  }
+  if (t.geo_locations?.countries && t.geo_locations.countries.length > 0) {
+    parts.push(t.geo_locations.countries.join(", "));
+  }
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+// Pulls ad sets and, for each, its ads — scoped to ONE already-synced
+// MetaCampaign at a time (triggered from that campaign's detail page),
+// rather than every campaign in one click. A large Business Manager can
+// have many campaigns × ad sets, so fanning this out globally like
+// syncMetaCampaigns does would turn one click into an unbounded number of
+// Graph API calls; syncing per campaign keeps each click's cost predictable.
+// Still read-only, still no insights.
+export async function syncMetaAdSetsAndAds(
+  metaCampaignId: string,
+  _prevState: string | undefined,
+  _formData: FormData
+): Promise<string | undefined> {
+  void _formData;
+  const user = await requireAdmin();
+  if (!user.companyId) return "الحساب الحالي غير مرتبط بأي شركة.";
+
+  const campaign = await prisma.metaCampaign.findUnique({
+    where: { id: metaCampaignId },
+    include: { adAccount: { include: { connection: true } } },
+  });
+  if (!campaign || campaign.adAccount.connection.companyId !== user.companyId) {
+    return "الحملة غير موجودة.";
+  }
+  const connection = campaign.adAccount.connection;
+  if (connection.tokenExpiresAt && connection.tokenExpiresAt < new Date()) {
+    return "انتهت صلاحية رمز الوصول. أعد الربط من قسم Meta Integration بالإعدادات.";
+  }
+
+  const accessToken = decryptToken(connection.accessTokenEncrypted);
+  const failures: string[] = [];
+  let adSets: MetaAdSetApiRow[];
+
+  try {
+    adSets = await metaGraphGetAllPages<MetaAdSetApiRow>(`${campaign.metaCampaignId}/adsets`, accessToken, {
+      fields: "id,name,status,daily_budget,lifetime_budget,start_time,end_time,targeting",
+      limit: "100",
+    });
+  } catch (err) {
+    const message = err instanceof MetaGraphError ? err.message : "فشل غير متوقع";
+    await prisma.metaConnection.update({ where: { id: connection.id }, data: { lastError: message } });
+    return `فشل جلب المجموعات الإعلانية: ${message}`;
+  }
+
+  let syncedAdSets = 0;
+  let syncedAds = 0;
+
+  for (const adSetRow of adSets) {
+    const adSet = await prisma.metaAdSet.upsert({
+      where: { campaignId_metaAdSetId: { campaignId: campaign.id, metaAdSetId: adSetRow.id } },
+      create: {
+        campaignId: campaign.id,
+        metaAdSetId: adSetRow.id,
+        name: adSetRow.name,
+        status: adSetRow.status ?? null,
+        dailyBudget: parseMetaBudget(adSetRow.daily_budget),
+        lifetimeBudget: parseMetaBudget(adSetRow.lifetime_budget),
+        startTime: adSetRow.start_time ? new Date(adSetRow.start_time) : null,
+        stopTime: adSetRow.end_time ? new Date(adSetRow.end_time) : null,
+        targetingSummary: buildTargetingSummary(adSetRow.targeting),
+      },
+      update: {
+        name: adSetRow.name,
+        status: adSetRow.status ?? null,
+        dailyBudget: parseMetaBudget(adSetRow.daily_budget),
+        lifetimeBudget: parseMetaBudget(adSetRow.lifetime_budget),
+        startTime: adSetRow.start_time ? new Date(adSetRow.start_time) : null,
+        stopTime: adSetRow.end_time ? new Date(adSetRow.end_time) : null,
+        targetingSummary: buildTargetingSummary(adSetRow.targeting),
+      },
+    });
+    syncedAdSets += 1;
+
+    let ads: MetaAdApiRow[];
+    try {
+      ads = await metaGraphGetAllPages<MetaAdApiRow>(`${adSetRow.id}/ads`, accessToken, {
+        fields: "id,name,status,creative{name,thumbnail_url}",
+        limit: "100",
+      });
+    } catch (err) {
+      const message = err instanceof MetaGraphError ? err.message : "فشل غير متوقع";
+      failures.push(`${adSetRow.name}: ${message}`);
+      continue;
+    }
+
+    await prisma.$transaction(
+      ads.map((a) =>
+        prisma.metaAd.upsert({
+          where: { adSetId_metaAdId: { adSetId: adSet.id, metaAdId: a.id } },
+          create: {
+            adSetId: adSet.id,
+            metaAdId: a.id,
+            name: a.name,
+            status: a.status ?? null,
+            creativeName: a.creative?.name ?? null,
+            creativeThumbnailUrl: a.creative?.thumbnail_url ?? null,
+          },
+          update: {
+            name: a.name,
+            status: a.status ?? null,
+            creativeName: a.creative?.name ?? null,
+            creativeThumbnailUrl: a.creative?.thumbnail_url ?? null,
+          },
+        })
+      )
+    );
+    syncedAds += ads.length;
+  }
+
+  await prisma.metaConnection.update({
+    where: { id: connection.id },
+    data: { lastSyncAt: new Date(), lastError: failures.length > 0 ? failures.join(" | ") : null },
+  });
+
+  revalidatePath(`/campaigns/meta/${campaign.id}`);
+  revalidatePath("/campaigns");
+
+  if (failures.length > 0 && syncedAds === 0 && syncedAdSets > 0) {
+    return `تمت مزامنة ${syncedAdSets} مجموعة إعلانية، لكن فشل جلب الإعلانات: ${failures.join(" | ")}`;
+  }
+  if (failures.length > 0) {
+    return `تمت المزامنة جزئياً (${syncedAdSets} مجموعة، ${syncedAds} إعلان)، مع بعض الأخطاء: ${failures.join(" | ")}`;
+  }
+  return undefined;
+}
