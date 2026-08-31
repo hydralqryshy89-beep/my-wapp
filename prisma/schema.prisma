@@ -377,3 +377,181 @@ model MetaInsight {
 
   @@unique([campaignId, date])
 }
+
+// ============================================================================
+// SaaS Builder — Phase 1 foundation
+// ============================================================================
+// A second, independent product living in this repo (see AGENTS.md history):
+// a generic multi-tenant Organization -> Project platform, unrelated to the
+// Marketing Plan models above. Models are prefixed `Saas` (and mapped to
+// `saas_*` tables) purely to avoid name collisions with the existing
+// User/Role/RolePermission models — the two products do not share any data,
+// auth, or tenancy. Everything below is intentionally minimal: only the
+// entities Phase 1 needs (auth, org/project membership, RBAC, audit log).
+// Data/Page/Form/Workflow/Automation engines are explicitly out of scope.
+
+model SaasUser {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  image        String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organizationMemberships SaasOrganizationMember[]
+  projectMemberships      SaasProjectMember[]
+  auditLogs               SaasAuditLog[]
+
+  @@map("saas_users")
+}
+
+model SaasOrganization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   SaasOrganizationMember[]
+  projects  SaasProject[]
+  roles     SaasRole[]
+  auditLogs SaasAuditLog[]
+
+  @@index([slug])
+  @@map("saas_organizations")
+}
+
+model SaasOrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  roleId         String
+  createdAt      DateTime @default(now())
+
+  organization SaasOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         SaasUser         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         SaasRole         @relation(fields: [roleId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("saas_organization_members")
+}
+
+// status: ACTIVE | ARCHIVED (validated in the application layer, see
+// src/lib/saas/constants.ts — kept as a plain String for the same
+// cross-provider-portability reason as the Marketing Plan models above).
+model SaasProject {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  description    String?
+  icon           String?
+  status         String   @default("ACTIVE")
+  settings       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization SaasOrganization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      SaasProjectMember[]
+  roles        SaasRole[]
+  auditLogs    SaasAuditLog[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@map("saas_projects")
+}
+
+model SaasProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  project SaasProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    SaasUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    SaasRole    @relation(fields: [roleId], references: [id])
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@map("saas_project_members")
+}
+
+// A Role can be scoped to an Organization, a Project, or neither (a
+// system-wide template — organizationId and projectId both null). Phase 1
+// only ever creates the six system-defined templates (see
+// src/lib/saas/constants.ts ROLE_KEYS / seed script) with `system = true`
+// and no organization/project scope, referenced by every membership row.
+// `key` is a stable machine identifier for the system roles (e.g.
+// "org_owner") so authorization code never has to match on the
+// human-readable, potentially-renamed `name`.
+model SaasRole {
+  id             String   @id @default(cuid())
+  organizationId String?
+  projectId      String?
+  key            String?  @unique
+  name           String
+  description    String?
+  system         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization        SaasOrganization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project              SaasProject?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  permissions          SaasRolePermission[]
+  organizationMembers  SaasOrganizationMember[]
+  projectMembers       SaasProjectMember[]
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@map("saas_roles")
+}
+
+model SaasPermission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles SaasRolePermission[]
+
+  @@map("saas_permissions")
+}
+
+model SaasRolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  role       SaasRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission SaasPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("saas_role_permissions")
+}
+
+model SaasAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  projectId      String?
+  userId         String
+  action         String
+  entity         String
+  entityId       String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization SaasOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      SaasProject?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user         SaasUser         @relation(fields: [userId], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("saas_audit_logs")
+}

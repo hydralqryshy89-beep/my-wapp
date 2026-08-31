@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "vercel-build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "vercel-build": "prisma generate && prisma db push --accept-data-loss && tsx prisma/seed-saas.ts && next build",
     "start": "next start",
     "lint": "eslint",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "db:seed:saas": "tsx prisma/seed-saas.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
@@ -23,7 +24,8 @@
     "prisma": "^7.9.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

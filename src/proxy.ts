@@ -9,7 +9,14 @@ const PUBLIC_PATHS = ["/login"];
 // carries no browser session cookie for this proxy to find. Exempting it
 // here only changes *which* check gates that one machine-to-machine route;
 // it stays fully protected, just not by a user session.
-const SESSION_EXEMPT_PATHS = ["/api/meta/cron"];
+//
+// "/saas" is the SaaS Builder — a second, independent product living in
+// this repo (see AGENTS.md history) with its own session cookie
+// ("saas_session") and its own auth checks (requireSaasUser in
+// src/lib/saas/current-user.ts, enforced per-route in
+// src/app/saas/(app)/layout.tsx). It must never be gated by the Marketing
+// Plan app's own session cookie here.
+const SESSION_EXEMPT_PATHS = ["/api/meta/cron", "/saas"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -2,6 +2,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import { PERMISSION_RESOURCES, type PermissionLevel } from "../src/lib/constants";
+import { seedSaasRbac } from "../src/lib/saas/seed-rbac";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -11,6 +12,11 @@ const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  // ---- SaaS Builder: permission catalog + default system roles ---------
+  // Independent of the Marketing Plan demo data below — see seedSaasRbac's
+  // own docs for why it's safe to always re-run.
+  await seedSaasRbac(prisma);
+
   // ---- Company & Brands ----------------------------------------------
   const company = await prisma.company.upsert({
     where: { id: "seed-company-1" },
