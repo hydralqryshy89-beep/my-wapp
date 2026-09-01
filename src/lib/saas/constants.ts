@@ -38,6 +38,10 @@ export const PERMISSION_KEYS = [
   "data_relation.create",
   "data_relation.update",
   "data_relation.delete",
+  "data_record.view",
+  "data_record.create",
+  "data_record.update",
+  "data_record.delete",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 
@@ -112,6 +116,10 @@ export const DEFAULT_ROLES: {
       "data_relation.create",
       "data_relation.update",
       "data_relation.delete",
+      "data_record.view",
+      "data_record.create",
+      "data_record.update",
+      "data_record.delete",
     ],
   },
   {
@@ -125,6 +133,9 @@ export const DEFAULT_ROLES: {
       "data_model.view",
       "data_field.view",
       "data_relation.view",
+      "data_record.view",
+      "data_record.create",
+      "data_record.update",
     ],
   },
   {
@@ -138,6 +149,7 @@ export const DEFAULT_ROLES: {
       "data_model.view",
       "data_field.view",
       "data_relation.view",
+      "data_record.view",
     ],
   },
 ];

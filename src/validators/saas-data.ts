@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FIELD_TYPES, RELATION_TYPES } from "@/lib/saas/data-constants";
+import { FIELD_TYPES, RELATION_TYPES, FILTER_OPERATORS } from "@/lib/saas/data-constants";
 
 export const dataModelNameSchema = z.string().trim().min(2, "Name must be at least 2 characters.").max(80);
 export const dataModelDescriptionSchema = z.string().trim().max(500).optional().nullable();
@@ -39,4 +39,25 @@ export const dataRelationCreateSchema = z.object({
 export const dataRelationUpdateSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters.").max(80),
   type: z.enum(RELATION_TYPES),
+});
+
+// Phase 2B — Dynamic Records. `data` itself is only shape-checked here (a
+// plain object) — the actual per-field type/required/unique/relation
+// validation happens in src/lib/saas/record-validation.ts against the
+// model's real fields, which this schema has no knowledge of.
+export const dataRecordDataSchema = z.record(z.string(), z.unknown());
+
+export const dataRecordFilterSchema = z.object({
+  field: z.string().min(1),
+  operator: z.enum(FILTER_OPERATORS),
+  value: z.unknown().optional(),
+});
+
+export const dataRecordQuerySchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  filters: z.array(dataRecordFilterSchema).max(20).optional(),
+  sortField: z.string().max(80).optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });

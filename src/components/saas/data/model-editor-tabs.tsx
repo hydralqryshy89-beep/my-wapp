@@ -6,16 +6,19 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { key: "fields", label: "Fields" },
   { key: "relations", label: "Relations" },
+  { key: "records", label: "Records" },
   { key: "settings", label: "Settings" },
 ] as const;
 
 export function ModelEditorTabs({
   fieldsContent,
   relationsContent,
+  recordsContent,
   settingsContent,
 }: {
   fieldsContent: React.ReactNode;
   relationsContent: React.ReactNode;
+  recordsContent: React.ReactNode;
   settingsContent: React.ReactNode;
 }) {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("fields");
@@ -39,6 +42,7 @@ export function ModelEditorTabs({
       </div>
       {tab === "fields" && fieldsContent}
       {tab === "relations" && relationsContent}
+      {tab === "records" && recordsContent}
       {tab === "settings" && settingsContent}
     </div>
   );

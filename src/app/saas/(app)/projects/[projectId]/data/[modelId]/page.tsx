@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireSaasUser } from "@/lib/saas/current-user";
 import { getDataModel, getDataModels } from "@/services/saas/data-model.service";
 import { getRelations } from "@/services/saas/data-relation.service";
+import { countDataRecordsForModel } from "@/services/saas/data-record.service";
 import { hasPermission } from "@/lib/saas/authorization";
 import { ForbiddenError, NotFoundError } from "@/lib/saas/errors";
 import { deleteDataModelAction } from "@/actions/saas/data-model.actions";
@@ -12,6 +13,7 @@ import { ConfirmFormButton } from "@/components/saas/ui/confirm-form-button";
 import { ModelEditorTabs } from "@/components/saas/data/model-editor-tabs";
 import { FieldManager } from "@/components/saas/data/field-manager";
 import { RelationManager } from "@/components/saas/data/relation-manager";
+import { RecordsTabSummary } from "@/components/saas/data/records-tab-summary";
 import { UpdateDataModelForm } from "@/components/saas/data/update-data-model-form";
 
 export default async function DataModelEditorPage({
@@ -50,6 +52,9 @@ export default async function DataModelEditorPage({
   const canManageRelations = hasPermission(access.permissions, "data_relation.create");
   const canEditModel = hasPermission(access.permissions, "data_model.update");
   const canDeleteModel = hasPermission(access.permissions, "data_model.delete");
+  const canViewRecords = hasPermission(access.permissions, "data_record.view");
+  const canCreateRecords = hasPermission(access.permissions, "data_record.create");
+  const recordCount = canViewRecords ? await countDataRecordsForModel(user.id, projectId, modelId) : 0;
 
   return (
     <div>
@@ -69,6 +74,16 @@ export default async function DataModelEditorPage({
                 otherModels={otherModels}
                 relations={modelRelations}
                 canManage={canManageRelations}
+              />
+            }
+            recordsContent={
+              <RecordsTabSummary
+                projectId={projectId}
+                modelId={modelId}
+                modelName={model.name}
+                recordCount={recordCount}
+                canView={canViewRecords}
+                canCreate={canCreateRecords}
               />
             }
             settingsContent={

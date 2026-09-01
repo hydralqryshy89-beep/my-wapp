@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Database, Plus } from "lucide-react";
 import { requireSaasUser } from "@/lib/saas/current-user";
 import { getDataModels } from "@/services/saas/data-model.service";
+import { countDataRecordsByModelIds } from "@/services/saas/data-record.service";
 import { ForbiddenError, NotFoundError } from "@/lib/saas/errors";
 import { hasPermission, requireProjectContext } from "@/lib/saas/authorization";
 import { PageHeader } from "@/components/saas/ui/page-header";
@@ -29,6 +30,8 @@ export default async function DataModelsPage({ params }: { params: Promise<{ pro
 
   const models = await getDataModels(user.id, projectId);
   const canCreate = hasPermission(access.permissions, "data_model.create");
+  const canViewRecords = hasPermission(access.permissions, "data_record.view");
+  const recordCounts = canViewRecords ? await countDataRecordsByModelIds(models.map((m) => m.id)) : {};
 
   return (
     <div>
@@ -77,6 +80,7 @@ export default async function DataModelsPage({ params }: { params: Promise<{ pro
                   </a>
                   <p className="text-xs text-slate-500">
                     {model.fields.length} {model.fields.length === 1 ? "field" : "fields"}
+                    {canViewRecords && <> · {(recordCounts[model.id] ?? 0).toLocaleString()} records</>}
                   </p>
                 </div>
               </div>

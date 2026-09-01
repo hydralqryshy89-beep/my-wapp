@@ -60,3 +60,87 @@ export const RELATION_TYPE_LABELS: Record<RelationType, string> = {
   MANY_TO_ONE: "Many to One",
   MANY_TO_MANY: "Many to Many",
 };
+
+// Phase 2B — Dynamic Records: query engine. Every filter operator is
+// whitelisted per field type (see AGENTS.md section 32/33) — an operator
+// not listed for a type is rejected before it ever reaches SQL.
+export const FILTER_OPERATORS = [
+  "equals",
+  "notEquals",
+  "contains",
+  "notContains",
+  "startsWith",
+  "endsWith",
+  "greaterThan",
+  "greaterThanOrEqual",
+  "lessThan",
+  "lessThanOrEqual",
+  "isEmpty",
+  "isNotEmpty",
+  "in",
+  "notIn",
+  "before",
+  "after",
+  "between",
+] as const;
+export type FilterOperator = (typeof FILTER_OPERATORS)[number];
+
+export const FILTER_OPERATOR_LABELS: Record<FilterOperator, string> = {
+  equals: "is",
+  notEquals: "is not",
+  contains: "contains",
+  notContains: "does not contain",
+  startsWith: "starts with",
+  endsWith: "ends with",
+  greaterThan: "greater than",
+  greaterThanOrEqual: "greater than or equal to",
+  lessThan: "less than",
+  lessThanOrEqual: "less than or equal to",
+  isEmpty: "is empty",
+  isNotEmpty: "is not empty",
+  in: "is any of",
+  notIn: "is none of",
+  before: "before",
+  after: "after",
+  between: "between",
+};
+
+const TEXT_OPERATORS: readonly FilterOperator[] = [
+  "equals",
+  "notEquals",
+  "contains",
+  "startsWith",
+  "endsWith",
+  "isEmpty",
+  "isNotEmpty",
+];
+const NUMBER_OPERATORS: readonly FilterOperator[] = [
+  "equals",
+  "notEquals",
+  "greaterThan",
+  "greaterThanOrEqual",
+  "lessThan",
+  "lessThanOrEqual",
+  "in",
+  "notIn",
+];
+const DATE_OPERATORS: readonly FilterOperator[] = ["equals", "before", "after", "between"];
+
+export const FILTER_OPERATORS_BY_FIELD_TYPE: Record<FieldType, readonly FilterOperator[]> = {
+  TEXT: TEXT_OPERATORS,
+  LONG_TEXT: TEXT_OPERATORS,
+  URL: TEXT_OPERATORS,
+  EMAIL: ["equals", "contains"],
+  PHONE: ["equals", "contains"],
+  NUMBER: NUMBER_OPERATORS,
+  CURRENCY: NUMBER_OPERATORS,
+  BOOLEAN: ["equals"],
+  DATE: DATE_OPERATORS,
+  DATETIME: DATE_OPERATORS,
+  SELECT: ["equals", "notEquals", "in", "notIn"],
+  MULTI_SELECT: ["contains", "notContains"],
+  FILE: [],
+};
+
+export const DEFAULT_PAGE_SIZE = 20;
+export const MAX_PAGE_SIZE = 100;

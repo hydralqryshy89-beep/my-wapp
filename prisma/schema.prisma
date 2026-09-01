@@ -402,6 +402,8 @@ model SaasUser {
   organizationMemberships SaasOrganizationMember[]
   projectMemberships      SaasProjectMember[]
   auditLogs               SaasAuditLog[]
+  createdDataRecords      SaasDataRecord[]         @relation("DataRecordCreatedBy")
+  updatedDataRecords      SaasDataRecord[]         @relation("DataRecordUpdatedBy")
 
   @@map("saas_users")
 }
@@ -585,6 +587,7 @@ model SaasDataModel {
   fields        SaasDataField[]
   relationsFrom SaasDataRelation[] @relation("DataRelationFromModel")
   relationsTo   SaasDataRelation[] @relation("DataRelationToModel")
+  records       SaasDataRecord[]
 
   @@unique([projectId, slug])
   @@index([projectId])
@@ -650,4 +653,33 @@ model SaasDataRelation {
   @@index([fromModelId])
   @@index([toModelId])
   @@map("saas_data_relations")
+}
+
+// ============================================================================
+// SaaS Builder — Phase 2B: Dynamic Records
+// ============================================================================
+// One shared table stores rows for every Data Model in every project — no
+// per-model Postgres table, no EAV. `data` is the record's field values
+// keyed by SaasDataField.key (never .name), validated against the model's
+// fields at the application layer before every write (see
+// src/lib/saas/record-validation.ts). `id` is permanent and never derived
+// from `data`, so relations and (later) the Page Builder can reference a
+// record by id regardless of what its fields later become.
+model SaasDataRecord {
+  id          String   @id @default(cuid())
+  modelId     String
+  data        Json
+  createdById String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  model     SaasDataModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  createdBy SaasUser      @relation("DataRecordCreatedBy", fields: [createdById], references: [id])
+  updatedBy SaasUser?     @relation("DataRecordUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([modelId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@map("saas_data_records")
 }
