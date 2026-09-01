@@ -82,11 +82,17 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Coming soon</CardTitle>
+          <CardTitle>Modules</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 text-sm text-slate-500 sm:grid-cols-4">
-          {["Data", "Pages", "Forms", "Workflows"].map((label) => (
-            <div key={label} className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center">
+        <CardContent className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          <a
+            href={`/saas/projects/${projectId}/data`}
+            className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-4 text-center font-medium text-indigo-700 hover:bg-indigo-100"
+          >
+            Data
+          </a>
+          {["Pages", "Forms", "Workflows"].map((label) => (
+            <div key={label} className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-slate-500">
               {label}
             </div>
           ))}

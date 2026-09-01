@@ -455,10 +455,12 @@ model SaasProject {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization SaasOrganization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members      SaasProjectMember[]
-  roles        SaasRole[]
-  auditLogs    SaasAuditLog[]
+  organization  SaasOrganization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members       SaasProjectMember[]
+  roles         SaasRole[]
+  auditLogs     SaasAuditLog[]
+  dataModels    SaasDataModel[]
+  dataRelations SaasDataRelation[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -554,4 +556,98 @@ model SaasAuditLog {
   @@index([userId])
   @@index([createdAt])
   @@map("saas_audit_logs")
+}
+
+// ============================================================================
+// SaaS Builder — Phase 2A: Data Model Builder (schema definition only)
+// ============================================================================
+// Lets a Project define its own Data Models (collections) and Fields
+// (columns) through the UI, with no code written. Phase 2A is schema-only:
+// no SaasDynamicRecord (row storage), no query/validation engine yet — that
+// is Phase 2B, and it will build on top of these rows, which is why
+// SaasDataModel.id / SaasDataField.id / .key / .type must stay stable once
+// created (see src/services/saas/data-model.service.ts and
+// data-field.service.ts).
+
+model SaasDataModel {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  slug        String
+  description String?
+  icon        String?
+  position    Int      @default(0)
+  settings    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project       SaasProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fields        SaasDataField[]
+  relationsFrom SaasDataRelation[] @relation("DataRelationFromModel")
+  relationsTo   SaasDataRelation[] @relation("DataRelationToModel")
+
+  @@unique([projectId, slug])
+  @@index([projectId])
+  @@map("saas_data_models")
+}
+
+// `key` is the stable machine identifier Phase 2B's storage/query engine
+// will key a DynamicRecord's JSON payload on — set once at creation and
+// never changed by renaming `name` (see src/lib/saas/slug.ts). Options,
+// defaultValue, validation and settings are opaque JSON in Phase 2A: only
+// stored and rendered back, never evaluated — no validation engine, no
+// formulas (see AGENTS.md Phase 2A scope).
+model SaasDataField {
+  id           String   @id @default(cuid())
+  modelId      String
+  name         String
+  key          String
+  type         String
+  required     Boolean  @default(false)
+  unique       Boolean  @default(false)
+  defaultValue Json?
+  options      Json?
+  validation   Json?
+  position     Int      @default(0)
+  settings     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  model         SaasDataModel      @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  relationsFrom SaasDataRelation[] @relation("DataRelationFromField")
+  relationsTo   SaasDataRelation[] @relation("DataRelationToField")
+
+  @@unique([modelId, key])
+  @@index([modelId])
+  @@map("saas_data_fields")
+}
+
+// A schema-only relation between two Data Models in the SAME project (never
+// across projects — enforced in src/services/saas/data-relation.service.ts,
+// not just the UI). fromField/toField anchor it to two existing fields; this
+// row is the single source of truth for the relationship (see AGENTS.md
+// section 17) — a Field never stores its own copy of relation data.
+model SaasDataRelation {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  fromModelId String
+  fromFieldId String
+  toModelId   String
+  toFieldId   String
+  type        String
+  settings    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project   SaasProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromModel SaasDataModel @relation("DataRelationFromModel", fields: [fromModelId], references: [id], onDelete: Cascade)
+  toModel   SaasDataModel @relation("DataRelationToModel", fields: [toModelId], references: [id], onDelete: Cascade)
+  fromField SaasDataField @relation("DataRelationFromField", fields: [fromFieldId], references: [id], onDelete: Cascade)
+  toField   SaasDataField @relation("DataRelationToField", fields: [toFieldId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([fromModelId])
+  @@index([toModelId])
+  @@map("saas_data_relations")
 }
