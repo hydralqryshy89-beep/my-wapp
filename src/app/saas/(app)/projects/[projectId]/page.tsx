@@ -91,7 +91,13 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
           >
             Data
           </a>
-          {["Pages", "Forms", "Workflows"].map((label) => (
+          <a
+            href={`/saas/projects/${projectId}/pages`}
+            className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-4 text-center font-medium text-indigo-700 hover:bg-indigo-100"
+          >
+            Pages
+          </a>
+          {["Forms", "Workflows"].map((label) => (
             <div key={label} className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-slate-500">
               {label}
             </div>

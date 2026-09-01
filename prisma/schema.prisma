@@ -404,6 +404,8 @@ model SaasUser {
   auditLogs               SaasAuditLog[]
   createdDataRecords      SaasDataRecord[]         @relation("DataRecordCreatedBy")
   updatedDataRecords      SaasDataRecord[]         @relation("DataRecordUpdatedBy")
+  createdPages            SaasPage[]               @relation("PageCreatedBy")
+  updatedPages            SaasPage[]               @relation("PageUpdatedBy")
 
   @@map("saas_users")
 }
@@ -463,6 +465,7 @@ model SaasProject {
   auditLogs     SaasAuditLog[]
   dataModels    SaasDataModel[]
   dataRelations SaasDataRelation[]
+  pages         SaasPage[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -682,4 +685,65 @@ model SaasDataRecord {
   @@index([createdAt])
   @@index([updatedAt])
   @@map("saas_data_records")
+}
+
+// ============================================================================
+// SaaS Builder — Phase 3A: Page Builder Foundation (architecture only)
+// ============================================================================
+// A Page belongs to a Project; its content is a tree of SaasPageNode rows
+// (self-relation via parentId), never a JSON blob and never React component
+// state — the stored tree IS the page (see AGENTS.md Phase 3A). Deliberately
+// the opposite storage shape from Phase 2B's single-JSON-column records: a
+// page's structure needs per-node addressing, reparenting, and reordering,
+// which a nested blob would make far harder to do safely and atomically.
+// No publishing engine yet: `status` is inert metadata only.
+
+model SaasPage {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  slug        String
+  status      String   @default("DRAFT")
+  createdById String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project   SaasProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy SaasUser       @relation("PageCreatedBy", fields: [createdById], references: [id])
+  updatedBy SaasUser?      @relation("PageUpdatedBy", fields: [updatedById], references: [id])
+  nodes     SaasPageNode[]
+
+  @@unique([projectId, slug])
+  @@index([projectId])
+  @@map("saas_pages")
+}
+
+// Exactly one node per page has `parentId = null` — the Root node (type
+// "ROOT"), created transactionally with its Page and never deletable (see
+// page-node.service.ts). `position` orders siblings under the same parent
+// and is always explicitly rewritten on reorder/move — never inferred from
+// createdAt. `type` is validated against the Component Registry
+// (src/lib/saas/page-builder/component-registry.ts), the single source of
+// truth for which component types exist and what `props`/`styles` they
+// accept — never hardcoded here or in the UI.
+model SaasPageNode {
+  id        String   @id @default(cuid())
+  pageId    String
+  parentId  String?
+  type      String
+  props     Json     @default("{}")
+  styles    Json     @default("{}")
+  settings  Json     @default("{}")
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  page     SaasPage       @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  parent   SaasPageNode?  @relation("PageNodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children SaasPageNode[] @relation("PageNodeChildren")
+
+  @@index([pageId])
+  @@index([parentId])
+  @@map("saas_page_nodes")
 }
