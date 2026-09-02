@@ -18,8 +18,41 @@ export const pageNodeUpdateSchema = z.object({
   props: z.record(z.string(), z.unknown()).optional(),
   styles: z.record(z.string(), z.unknown()).optional(),
   settings: z.record(z.string(), z.unknown()).optional(),
+  expectedUpdatedAt: z.string().optional(),
 });
 
 export const pageNodeMoveSchema = z.object({
   newParentId: z.string().min(1),
+  position: z.number().int().min(0).optional(),
+});
+
+export const pageNodeReorderSchema = z.object({
+  parentId: z.string().min(1),
+  orderedNodeIds: z.array(z.string().min(1)).min(1),
+});
+
+// The client captures this shape (from its own local node tree) right
+// before deleting a subtree, so Undo can hand it back verbatim — every
+// node in it is still revalidated against the Component Registry
+// server-side (see restorePageNodeSubtree), this schema only checks shape.
+export const restoreNodeInputSchema: z.ZodType<{
+  type: string;
+  props: Record<string, unknown>;
+  styles: Record<string, unknown>;
+  settings: Record<string, unknown>;
+  children: unknown[];
+}> = z.lazy(() =>
+  z.object({
+    type: z.string().min(1),
+    props: z.record(z.string(), z.unknown()),
+    styles: z.record(z.string(), z.unknown()),
+    settings: z.record(z.string(), z.unknown()),
+    children: z.array(restoreNodeInputSchema),
+  })
+);
+
+export const pageNodeRestoreSchema = z.object({
+  parentId: z.string().min(1),
+  subtree: restoreNodeInputSchema,
+  position: z.number().int().min(0).optional(),
 });

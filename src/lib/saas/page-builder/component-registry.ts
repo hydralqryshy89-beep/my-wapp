@@ -56,7 +56,7 @@ export const styleSchema = z
   .partial()
   .strict();
 
-export type PropertyControl = "text" | "textarea" | "number" | "select" | "checkbox";
+export type PropertyControl = "text" | "textarea" | "number" | "select" | "checkbox" | "url" | "color";
 
 export interface PropertyFieldDef {
   key: string;
@@ -180,7 +180,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentDefinition> = {
     defaultStyles: {},
     propsSchema: z.object({ src: z.string().trim().max(2000), alt: z.string().trim().max(300) }).strict(),
     propertyFields: [
-      { key: "src", label: "Image URL", control: "text" },
+      { key: "src", label: "Image URL", control: "url" },
       { key: "alt", label: "Alt text", control: "text" },
     ],
   },
@@ -196,7 +196,7 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentDefinition> = {
     propsSchema: z.object({ text: z.string().trim().max(200), href: z.string().trim().max(2000) }).strict(),
     propertyFields: [
       { key: "text", label: "Text", control: "text" },
-      { key: "href", label: "Link URL", control: "text" },
+      { key: "href", label: "Link URL", control: "url" },
     ],
   },
   SPACER: {

@@ -40,7 +40,7 @@ export default async function PageEditorPage({
       <PageEditor projectId={projectId} pageId={pageId} nodes={nodes} canEdit={canEdit} />
 
       {(canEdit || canDelete) && (
-        <Card className="mt-6">
+        <Card className="mt-6" id="page-settings">
           <CardHeader>
             <CardTitle>Page settings</CardTitle>
           </CardHeader>

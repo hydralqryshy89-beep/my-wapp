@@ -1,15 +1,10 @@
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { PageTreeNode } from "@/lib/saas/page-builder/build-tree";
 
-/**
- * Turns a Page Schema (the same tree the Editor edits) into real HTML —
- * the runtime rendering layer, deliberately separate from the Editor's own
- * canvas UI (see AGENTS.md Phase 3A). Used by the in-editor Preview tab
- * today; a future publish route would reuse this same component unchanged.
- */
-export function PageRenderer({ node }: { node: PageTreeNode }) {
+export type WrapNode = (node: PageTreeNode, rendered: ReactNode) => ReactNode;
+
+function renderElement(node: PageTreeNode, children: ReactNode): ReactNode {
   const style = node.styles as CSSProperties;
-  const children = node.children.map((child) => <PageRenderer key={child.id} node={child} />);
 
   switch (node.type) {
     case "ROOT":
@@ -19,18 +14,12 @@ export function PageRenderer({ node }: { node: PageTreeNode }) {
 
     case "STACK": {
       const direction = node.props.direction === "row" ? "row" : "column";
-      return (
-        <div style={{ display: "flex", flexDirection: direction, ...style }}>
-          {children}
-        </div>
-      );
+      return <div style={{ display: "flex", flexDirection: direction, ...style }}>{children}</div>;
     }
 
     case "GRID": {
       const columns = Number(node.props.columns) || 2;
-      return (
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, 1fr)`, ...style }}>{children}</div>
-      );
+      return <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, 1fr)`, ...style }}>{children}</div>;
     }
 
     case "TEXT":
@@ -84,4 +73,22 @@ export function PageRenderer({ node }: { node: PageTreeNode }) {
     default:
       return null;
   }
+}
+
+function renderWithWrap(node: PageTreeNode, wrap?: WrapNode): ReactNode {
+  const children = node.children.map((child) => <Fragment key={child.id}>{renderWithWrap(child, wrap)}</Fragment>);
+  const element = renderElement(node, children);
+  return wrap ? wrap(node, element) : element;
+}
+
+/**
+ * Turns a Page Schema (the same tree the Editor edits) into real HTML — the
+ * one runtime rendering layer shared by the in-editor visual Canvas and the
+ * standalone Preview. `wrap`, when given, lets a caller decorate every
+ * rendered node (selection outline, hover, drag handles, drop zones)
+ * without this component knowing anything about editing — omit it and this
+ * is exactly the clean, editor-free Preview/Runtime renderer.
+ */
+export function PageRenderer({ node, wrap }: { node: PageTreeNode; wrap?: WrapNode }) {
+  return <>{renderWithWrap(node, wrap)}</>;
 }

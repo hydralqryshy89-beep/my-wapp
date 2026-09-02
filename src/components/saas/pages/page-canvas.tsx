@@ -1,130 +1,166 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { ChevronUp, ChevronDown, Trash2 } from "lucide-react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { getComponentDefinition } from "@/lib/saas/page-builder/component-registry";
-import type { FlatPageNode } from "@/lib/saas/page-builder/build-tree";
+import { buildNodeTree, type FlatPageNode, type PageTreeNode } from "@/lib/saas/page-builder/build-tree";
+import { PageRenderer } from "@/components/saas/pages/page-renderer";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/saas/ui/card";
-import { cn } from "@/lib/utils";
+import type { DropZone } from "@/components/saas/pages/page-editor-dnd";
+import type { Device } from "@/components/saas/pages/use-page-editor-state";
 
-function nodePreview(node: FlatPageNode): string {
-  const props = (node.props ?? {}) as Record<string, unknown>;
-  if (typeof props.text === "string" && props.text) return `"${props.text.slice(0, 30)}"`;
-  if (typeof props.src === "string" && props.src) return props.src.slice(0, 30);
-  return "";
+const DEVICE_WIDTH: Record<Device, string> = { desktop: "100%", tablet: "768px", mobile: "375px" };
+
+function NodeWrapper({
+  node,
+  rendered,
+  rootId,
+  selectedId,
+  hoveredId,
+  dropZone,
+  canEdit,
+  onSelect,
+  onHover,
+}: {
+  node: PageTreeNode;
+  rendered: React.ReactNode;
+  rootId: string;
+  selectedId: string | null;
+  hoveredId: string | null;
+  dropZone: DropZone | null;
+  canEdit: boolean;
+  onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
+}) {
+  const isRoot = node.id === rootId;
+  const definition = getComponentDefinition(node.type);
+  const draggable = useDraggable({ id: node.id, data: { source: "node", nodeId: node.id, type: node.type }, disabled: !canEdit || isRoot });
+  const droppable = useDroppable({ id: node.id, disabled: !canEdit });
+
+  const isSelected = selectedId === node.id;
+  const isHovered = hoveredId === node.id && !isSelected;
+  const zone = dropZone?.targetId === node.id ? dropZone.zone : null;
+
+  return (
+    <div
+      ref={(el) => {
+        draggable.setNodeRef(el);
+        droppable.setNodeRef(el);
+      }}
+      {...(isRoot ? {} : draggable.listeners)}
+      {...(isRoot ? {} : draggable.attributes)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(node.id);
+      }}
+      onMouseEnter={(e) => {
+        e.stopPropagation();
+        onHover(node.id);
+      }}
+      onMouseLeave={() => onHover(null)}
+      data-node-id={node.id}
+      style={{
+        position: "relative",
+        cursor: isRoot || !canEdit ? "default" : "grab",
+        opacity: draggable.isDragging ? 0.35 : 1,
+        outline: isSelected ? "2px solid #4f46e5" : isHovered ? "1px dashed #94a3b8" : "1px solid transparent",
+        outlineOffset: "-1px",
+        boxShadow:
+          zone === "before"
+            ? "inset 0 3px 0 0 #4f46e5"
+            : zone === "after"
+              ? "inset 0 -3px 0 0 #4f46e5"
+              : zone === "inside"
+                ? "inset 0 0 0 2px #4f46e5"
+                : undefined,
+        minHeight: definition.canHaveChildren && node.children.length === 0 ? "32px" : undefined,
+      }}
+    >
+      {(isSelected || isHovered) && (
+        <span
+          style={{
+            position: "absolute",
+            top: -18,
+            left: -1,
+            fontSize: 10,
+            lineHeight: 1,
+            background: isSelected ? "#4f46e5" : "#64748b",
+            color: "#fff",
+            padding: "2px 5px",
+            borderRadius: "3px 3px 0 0",
+            zIndex: 30,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+          }}
+        >
+          {definition.label}
+        </span>
+      )}
+      {rendered}
+      {definition.canHaveChildren && node.children.length === 0 && (
+        <div style={{ padding: "8px", fontSize: 11, color: "#94a3b8", textAlign: "center", pointerEvents: "none" }}>Drop components here</div>
+      )}
+    </div>
+  );
 }
 
 /**
- * The tree view of a Page's nodes — hierarchy, selection, type, and a short
- * content preview, never a pixel-accurate render. Real rendering is
- * PageRenderer's job (see page-renderer.tsx); this stays a structural
- * editing surface on purpose.
+ * The visual Canvas: the actual page, rendered by the same PageRenderer the
+ * standalone Preview uses, with selection/hover/drag/drop layered on via
+ * PageRenderer's `wrap` hook — never a second, parallel rendering path.
  */
 export function PageCanvas({
   nodes,
-  root,
+  rootId,
   selectedId,
-  onSelect,
-  onDelete,
-  onMoveUpDown,
-  onMoveToParent,
-  containerNodes,
+  hoveredId,
+  dropZone,
+  device,
   canEdit,
+  onSelect,
+  onHover,
 }: {
   nodes: FlatPageNode[];
-  root: FlatPageNode;
-  selectedId: string;
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onMoveUpDown: (node: FlatPageNode, direction: -1 | 1) => void;
-  onMoveToParent: (node: FlatPageNode, newParentId: string) => void;
-  containerNodes: FlatPageNode[];
+  rootId: string;
+  selectedId: string | null;
+  hoveredId: string | null;
+  dropZone: DropZone | null;
+  device: Device;
   canEdit: boolean;
+  onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
 }) {
-  function childrenOf(parentId: string): FlatPageNode[] {
-    return nodes.filter((n) => n.parentId === parentId).sort((a, b) => a.position - b.position);
-  }
-
-  function renderRow(node: FlatPageNode, depth: number): ReactNode {
-    const definition = getComponentDefinition(node.type);
-    const siblings = node.parentId ? childrenOf(node.parentId) : [node];
-    const index = siblings.findIndex((n) => n.id === node.id);
-    const isSelected = node.id === selectedId;
-
-    return (
-      <div key={node.id}>
-        <div
-          className={cn(
-            "flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-sm",
-            isSelected ? "border-indigo-300 bg-indigo-50" : "border-transparent hover:bg-slate-50"
-          )}
-          style={{ marginLeft: depth * 16 }}
-        >
-          <button type="button" onClick={() => onSelect(node.id)} className="min-w-0 flex-1 truncate text-left">
-            <span className="font-medium text-slate-900">{definition.label}</span>
-            {nodePreview(node) && <span className="ml-2 truncate text-slate-400">{nodePreview(node)}</span>}
-          </button>
-
-          {canEdit && node.parentId !== null && (
-            <>
-              <button
-                type="button"
-                aria-label="Move up"
-                disabled={index <= 0}
-                onClick={() => onMoveUpDown(node, -1)}
-                className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30"
-              >
-                <ChevronUp size={14} />
-              </button>
-              <button
-                type="button"
-                aria-label="Move down"
-                disabled={index === -1 || index >= siblings.length - 1}
-                onClick={() => onMoveUpDown(node, 1)}
-                className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30"
-              >
-                <ChevronDown size={14} />
-              </button>
-              {containerNodes.length > 1 && (
-                <select
-                  aria-label="Move to parent"
-                  className="rounded border border-slate-200 text-xs"
-                  value={node.parentId}
-                  onChange={(e) => onMoveToParent(node, e.target.value)}
-                >
-                  {containerNodes
-                    .filter((c) => c.id !== node.id)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {getComponentDefinition(c.type).label} · {c.id.slice(-4)}
-                      </option>
-                    ))}
-                </select>
-              )}
-              {definition.deletable && (
-                <button
-                  type="button"
-                  aria-label="Delete"
-                  onClick={() => onDelete(node.id)}
-                  className="rounded p-1 text-rose-500 hover:bg-rose-50"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </>
-          )}
-        </div>
-        {childrenOf(node.id).map((child) => renderRow(child, depth + 1))}
-      </div>
-    );
-  }
+  const tree = buildNodeTree(nodes);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Canvas</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-1 p-3">{renderRow(root, 0)}</CardContent>
+      <CardContent className="flex justify-center overflow-x-auto bg-slate-50 p-6">
+        <div
+          className="min-h-[400px] w-full rounded-lg border border-slate-200 bg-white transition-[width]"
+          style={{ maxWidth: DEVICE_WIDTH[device] }}
+          onClick={() => onSelect(rootId)}
+        >
+          <PageRenderer
+            node={tree}
+            wrap={(node, rendered) => (
+              <NodeWrapper
+                key={node.id}
+                node={node}
+                rendered={rendered}
+                rootId={rootId}
+                selectedId={selectedId}
+                hoveredId={hoveredId}
+                dropZone={dropZone}
+                canEdit={canEdit}
+                onSelect={onSelect}
+                onHover={onHover}
+              />
+            )}
+          />
+        </div>
+      </CardContent>
     </Card>
   );
 }
