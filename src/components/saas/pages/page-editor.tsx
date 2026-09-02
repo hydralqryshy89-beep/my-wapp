@@ -17,6 +17,7 @@ import { computeDropZone, type DragData, type DropZone } from "@/components/saas
 import { getComponentDefinition, canParentType, type ComponentType } from "@/lib/saas/page-builder/component-registry";
 import { childrenOf, findNode, getDescendantIds } from "@/lib/saas/page-builder/local-tree-ops";
 import { buildNodeTree } from "@/lib/saas/page-builder/build-tree";
+import { resolveNodeTree } from "@/lib/saas/page-builder/resolve-node-bindings";
 import { PageToolbar } from "@/components/saas/pages/page-toolbar";
 import { PagePalette } from "@/components/saas/pages/page-palette";
 import { PageCanvas } from "@/components/saas/pages/page-canvas";
@@ -181,7 +182,7 @@ export function PageEditor({
             className="w-full rounded-lg border border-slate-200 bg-white p-6 transition-[max-width]"
             style={{ maxWidth: DEVICE_WIDTH[editor.device] }}
           >
-            <PageRenderer node={buildNodeTree(editor.nodes)} />
+            <PageRenderer node={resolveNodeTree(buildNodeTree(editor.nodes), editor.bindingContext)} />
           </div>
         </div>
       ) : (
@@ -219,6 +220,7 @@ export function PageEditor({
             dropZone={dropZone}
             device={editor.device}
             canEdit={canEdit}
+            bindingContext={editor.bindingContext}
             onSelect={editor.setSelectedId}
             onHover={editor.setHoveredId}
           />
@@ -226,6 +228,8 @@ export function PageEditor({
           <PagePropertiesPanel
             node={editor.selected}
             canEdit={canEdit}
+            bindableModels={editor.bindableModels}
+            bindingContext={editor.bindingContext}
             onChangeProps={editor.updateProps}
             onChangeStyles={editor.updateStyles}
           />

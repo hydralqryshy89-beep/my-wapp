@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { bindableValueSchema, type BindingCapability } from "@/lib/saas/page-builder/binding-schema";
 
 /**
  * The single source of truth for every component type the Page Builder
@@ -63,7 +64,31 @@ export interface PropertyFieldDef {
   label: string;
   control: PropertyControl;
   options?: readonly string[];
+  /** Present only for props a Data Model field can drive instead of a static value (see AGENTS.md Phase 3C). Absent means this prop is always static — e.g. HEADING's `level` or STACK's `direction`. */
+  binding?: BindingCapability;
 }
+
+// Field types meaningful to show as inline text — everything except FILE
+// (a file reference isn't itself readable text).
+const TEXT_BINDING_FIELD_TYPES: BindingCapability["compatibleFieldTypes"] = [
+  "TEXT",
+  "LONG_TEXT",
+  "NUMBER",
+  "CURRENCY",
+  "BOOLEAN",
+  "DATE",
+  "DATETIME",
+  "EMAIL",
+  "PHONE",
+  "URL",
+  "SELECT",
+  "MULTI_SELECT",
+];
+const IMAGE_BINDING_FIELD_TYPES: BindingCapability["compatibleFieldTypes"] = ["URL", "FILE"];
+// A URL field is the natural fit for a link; a plain TEXT field is also
+// allowed (e.g. a slug) — the resolver sanitizes whatever comes out either
+// way, so this can never become a javascript:/data: URL.
+const URL_BINDING_FIELD_TYPES: BindingCapability["compatibleFieldTypes"] = ["URL", "TEXT"];
 
 export interface ComponentDefinition {
   type: ComponentType;
@@ -151,8 +176,10 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentDefinition> = {
     deletable: true,
     defaultProps: { text: "Text" },
     defaultStyles: {},
-    propsSchema: z.object({ text: z.string().trim().max(2000) }).strict(),
-    propertyFields: [{ key: "text", label: "Text", control: "textarea" }],
+    propsSchema: z.object({ text: bindableValueSchema(2000) }).strict(),
+    propertyFields: [
+      { key: "text", label: "Text", control: "textarea", binding: { kind: "text", compatibleFieldTypes: TEXT_BINDING_FIELD_TYPES } },
+    ],
   },
   HEADING: {
     type: "HEADING",
@@ -163,9 +190,9 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentDefinition> = {
     deletable: true,
     defaultProps: { text: "Heading", level: "2" },
     defaultStyles: {},
-    propsSchema: z.object({ text: z.string().trim().max(300), level: z.enum(["1", "2", "3", "4"]) }).strict(),
+    propsSchema: z.object({ text: bindableValueSchema(300), level: z.enum(["1", "2", "3", "4"]) }).strict(),
     propertyFields: [
-      { key: "text", label: "Text", control: "textarea" },
+      { key: "text", label: "Text", control: "textarea", binding: { kind: "text", compatibleFieldTypes: TEXT_BINDING_FIELD_TYPES } },
       { key: "level", label: "Level", control: "select", options: ["1", "2", "3", "4"] },
     ],
   },
@@ -178,9 +205,9 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentDefinition> = {
     deletable: true,
     defaultProps: { src: "https://placehold.co/600x400", alt: "Image" },
     defaultStyles: {},
-    propsSchema: z.object({ src: z.string().trim().max(2000), alt: z.string().trim().max(300) }).strict(),
+    propsSchema: z.object({ src: bindableValueSchema(2000), alt: z.string().trim().max(300) }).strict(),
     propertyFields: [
-      { key: "src", label: "Image URL", control: "url" },
+      { key: "src", label: "Image URL", control: "url", binding: { kind: "image", compatibleFieldTypes: IMAGE_BINDING_FIELD_TYPES } },
       { key: "alt", label: "Alt text", control: "text" },
     ],
   },
@@ -193,10 +220,10 @@ export const COMPONENT_REGISTRY: Record<ComponentType, ComponentDefinition> = {
     deletable: true,
     defaultProps: { text: "Button", href: "#" },
     defaultStyles: {},
-    propsSchema: z.object({ text: z.string().trim().max(200), href: z.string().trim().max(2000) }).strict(),
+    propsSchema: z.object({ text: bindableValueSchema(200), href: bindableValueSchema(2000) }).strict(),
     propertyFields: [
-      { key: "text", label: "Text", control: "text" },
-      { key: "href", label: "Link URL", control: "url" },
+      { key: "text", label: "Text", control: "text", binding: { kind: "text", compatibleFieldTypes: TEXT_BINDING_FIELD_TYPES } },
+      { key: "href", label: "Link URL", control: "url", binding: { kind: "url", compatibleFieldTypes: URL_BINDING_FIELD_TYPES } },
     ],
   },
   SPACER: {

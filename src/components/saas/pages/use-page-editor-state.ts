@@ -23,6 +23,9 @@ import {
   updateNodeLocal,
   type EditorNode,
 } from "@/lib/saas/page-builder/local-tree-ops";
+import { collectBoundModelIds } from "@/lib/saas/page-builder/resolve-node-bindings";
+import { EMPTY_BINDING_CONTEXT, type BindingContext } from "@/lib/saas/page-builder/binding-schema";
+import { listBindableModelsAction, getPreviewRecordAction, type BindableModelInfo } from "@/actions/saas/data-binding.actions";
 import type { PageNodeRow, RestoreNodeInput } from "@/services/saas/page-node.service";
 
 export type Device = "desktop" | "tablet" | "mobile";
@@ -95,10 +98,68 @@ export function usePageEditorState(projectId: string, pageId: string, initialNod
   const [future, setFuture] = useState<HistoryCommand[]>([]);
   const [dirty, setDirty] = useState(false);
 
+  // Phase 3C — Data Binding: the project's Data Models (for the binding
+  // UI's Model/Field selectors) and a "current record" per distinct model
+  // any node actually binds to (for live preview in the Canvas/Preview).
+  // Both are fetched at controlled boundaries only — never per keystroke,
+  // hover, or drag — and cached for the life of this editor session.
+  const [bindableModels, setBindableModels] = useState<BindableModelInfo[] | null>(null);
+  const [bindingContext, setBindingContext] = useState<BindingContext>(EMPTY_BINDING_CONTEXT);
+  const requestedModelIdsRef = useRef<Set<string>>(new Set());
+  const modelsRequestedRef = useRef(false);
+
   const nodesRef = useRef(nodes);
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
+
+  const ensureModelsLoaded = useCallback(async () => {
+    if (modelsRequestedRef.current) return;
+    modelsRequestedRef.current = true;
+    const result = await listBindableModelsAction(projectId, pageId);
+    if (result.models) {
+      setBindableModels(result.models);
+      setBindingContext((prev) => ({
+        ...prev,
+        modelsLoaded: true,
+        models: Object.fromEntries(result.models!.map((m) => [m.id, m])),
+      }));
+    } else {
+      modelsRequestedRef.current = false; // allow a retry on failure
+    }
+  }, [pageId, projectId]);
+
+  const ensurePreviewRecordLoaded = useCallback(
+    async (modelId: string) => {
+      if (requestedModelIdsRef.current.has(modelId)) return;
+      requestedModelIdsRef.current.add(modelId);
+      const result = await getPreviewRecordAction(projectId, pageId, modelId);
+      if (result.record !== undefined) {
+        setBindingContext((prev) => ({ ...prev, records: { ...prev.records, [modelId]: result.record ? result.record.data : null } }));
+      } else {
+        requestedModelIdsRef.current.delete(modelId); // allow a retry on failure
+      }
+    },
+    [pageId, projectId]
+  );
+
+  useEffect(() => {
+    void (async () => {
+      await ensureModelsLoaded();
+    })();
+  }, [ensureModelsLoaded]);
+
+  // Whenever the tree changes (a binding is added, its model/field picked,
+  // or a node is removed), fetch a preview record for any newly-referenced
+  // model — and only for those, never speculatively for every model.
+  useEffect(() => {
+    if (!bindableModels) return;
+    void (async () => {
+      for (const modelId of collectBoundModelIds(nodes)) {
+        await ensurePreviewRecordLoaded(modelId);
+      }
+    })();
+  }, [nodes, bindableModels, ensurePreviewRecordLoaded]);
 
   const pendingEditRef = useRef<{
     nodeId: string;
@@ -506,6 +567,8 @@ export function usePageEditorState(projectId: string, pageId: string, initialNod
     dirty,
     canUndo: past.length > 0,
     canRedo: future.length > 0,
+    bindableModels,
+    bindingContext,
     setSelectedId,
     setHoveredId,
     setDevice,

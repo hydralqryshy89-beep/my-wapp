@@ -4,6 +4,7 @@ import { recordAuditLog } from "@/services/saas/audit.service";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/saas/errors";
 import { getComponentDefinition, isComponentType, canParentType, styleSchema } from "@/lib/saas/page-builder/component-registry";
 import { isNodeOrAncestor, type PageNodeLike } from "@/lib/saas/page-builder/tree-validation";
+import { validateNodePropsBindings } from "@/services/saas/data-binding.service";
 import type { PermissionKey } from "@/lib/saas/constants";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -29,14 +30,17 @@ export async function getPageTree(userId: string, projectId: string, pageId: str
   return { nodes };
 }
 
-function assertValidProps(type: string, props: unknown): Record<string, unknown> {
+/** Shape-validates props against the Component Registry, then (Phase 3C) re-validates any Dynamic binding inside them against this project's actual Data Models/Fields — never trusting a modelId/fieldKey just because it's well-formed. */
+async function assertValidProps(projectId: string, type: string, props: unknown): Promise<Record<string, unknown>> {
   if (!isComponentType(type)) throw new ValidationError(`Unknown component type "${type}".`);
   const definition = getComponentDefinition(type);
   const parsed = definition.propsSchema.safeParse(props);
   if (!parsed.success) {
     throw new ValidationError(`Invalid properties for "${definition.label}": ${parsed.error.issues[0]?.message ?? "invalid input"}.`);
   }
-  return parsed.data as Record<string, unknown>;
+  const validated = parsed.data as Record<string, unknown>;
+  await validateNodePropsBindings(projectId, type, validated);
+  return validated;
 }
 
 function assertValidStyles(styles: unknown): Record<string, unknown> {
@@ -112,7 +116,7 @@ export async function updatePageNode(
   const node = await requireNodeInPage(pageId, nodeId);
 
   const data: Prisma.SaasPageNodeUpdateInput = {};
-  if (input.props !== undefined) data.props = assertValidProps(node.type, input.props) as Prisma.InputJsonValue;
+  if (input.props !== undefined) data.props = (await assertValidProps(projectId, node.type, input.props)) as Prisma.InputJsonValue;
   if (input.styles !== undefined) data.styles = assertValidStyles(input.styles) as Prisma.InputJsonValue;
   if (input.settings !== undefined) data.settings = input.settings as Prisma.InputJsonValue;
 
@@ -289,6 +293,7 @@ export interface RestoreNodeInput {
 
 async function createSubtreeRecursive(
   tx: Prisma.TransactionClient,
+  projectId: string,
   pageId: string,
   parentId: string,
   position: number,
@@ -298,7 +303,7 @@ async function createSubtreeRecursive(
   if (!isComponentType(subtree.type)) throw new ValidationError(`Unknown component type "${subtree.type}".`);
   if (subtree.type === "ROOT") throw new ValidationError("A page can only ever have one Root node.");
 
-  const props = assertValidProps(subtree.type, subtree.props);
+  const props = await assertValidProps(projectId, subtree.type, subtree.props);
   const styles = assertValidStyles(subtree.styles);
   const node = await tx.saasPageNode.create({
     data: {
@@ -313,7 +318,7 @@ async function createSubtreeRecursive(
   });
   collected.push(node);
   for (let i = 0; i < subtree.children.length; i++) {
-    await createSubtreeRecursive(tx, pageId, node.id, i, subtree.children[i], collected);
+    await createSubtreeRecursive(tx, projectId, pageId, node.id, i, subtree.children[i], collected);
   }
   return node;
 }
@@ -327,6 +332,7 @@ export interface CreatedSubtree {
 /** Inserts a whole subtree under `parentId` at `position` (default: append), shifting later siblings down first. Shared by duplicatePageNode and restorePageNodeSubtree — the only two places a subtree is created wholesale instead of one empty default-props node at a time. */
 async function insertSubtreeAt(
   tx: Prisma.TransactionClient,
+  projectId: string,
   pageId: string,
   parentId: string,
   position: number | undefined,
@@ -341,7 +347,7 @@ async function insertSubtreeAt(
     });
   }
   const collected: PageNodeRow[] = [];
-  const root = await createSubtreeRecursive(tx, pageId, parentId, targetPosition, subtree, collected);
+  const root = await createSubtreeRecursive(tx, projectId, pageId, parentId, targetPosition, subtree, collected);
   return { root, all: collected };
 }
 
@@ -371,7 +377,7 @@ export async function duplicatePageNode(userId: string, projectId: string, pageI
   const subtree = captureSubtree(allNodes, nodeId);
 
   return prisma.$transaction(async (tx) => {
-    const created = await insertSubtreeAt(tx, pageId, node.parentId as string, node.position + 1, subtree);
+    const created = await insertSubtreeAt(tx, projectId, pageId, node.parentId as string, node.position + 1, subtree);
     await recordAuditLog(
       {
         organizationId: access.organizationId,
@@ -412,7 +418,7 @@ export async function restorePageNodeSubtree(
   }
 
   return prisma.$transaction(async (tx) => {
-    const created = await insertSubtreeAt(tx, pageId, parentId, position, subtree);
+    const created = await insertSubtreeAt(tx, projectId, pageId, parentId, position, subtree);
     await recordAuditLog(
       {
         organizationId: access.organizationId,

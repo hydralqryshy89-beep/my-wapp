@@ -3,6 +3,8 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { getComponentDefinition } from "@/lib/saas/page-builder/component-registry";
 import { buildNodeTree, type FlatPageNode, type PageTreeNode } from "@/lib/saas/page-builder/build-tree";
+import { resolveNodeTree } from "@/lib/saas/page-builder/resolve-node-bindings";
+import type { BindingContext } from "@/lib/saas/page-builder/binding-schema";
 import { PageRenderer } from "@/components/saas/pages/page-renderer";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/saas/ui/card";
 import type { DropZone } from "@/components/saas/pages/page-editor-dnd";
@@ -116,6 +118,7 @@ export function PageCanvas({
   dropZone,
   device,
   canEdit,
+  bindingContext,
   onSelect,
   onHover,
 }: {
@@ -126,10 +129,11 @@ export function PageCanvas({
   dropZone: DropZone | null;
   device: Device;
   canEdit: boolean;
+  bindingContext: BindingContext;
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
 }) {
-  const tree = buildNodeTree(nodes);
+  const tree = resolveNodeTree(buildNodeTree(nodes), bindingContext);
 
   return (
     <Card>
